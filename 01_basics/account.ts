@@ -20,7 +20,7 @@ export class InsufficientBalanceError extends DomainError {
 
 export class InvalidAmountError extends DomainError {
   constructor(public readonly amount: number) {
-    super(`1円以上の有効な金額を指定してください (${amount}円)`);
+    super(`0円より大きな金額を指定してください (${amount}円)`);
     this.name = "InvalidAmountError";
   }
 }

@@ -22,7 +22,7 @@ class InvalidAmountError(DomainError):
     """金額不正例外"""
 
     def __init__(self, amount: float):
-        super().__init__(f"0円よりも大きな金額を指定してください ({amount}円)")
+        super().__init__(f"0円より大きな金額を指定してください ({amount}円)")
         self.amount = amount
 
 
