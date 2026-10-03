@@ -1,4 +1,4 @@
-## 01_basics/account.py
+# 01_basics/account.py
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -7,11 +7,11 @@ from enum import Enum
 # ドメイン例外の定義
 class DomainError(Exception):
     "ドメイン領域の基本例外クラス"
-    pass
 
 
 class InsufficientBalanceError(DomainError):
     """残高不足例外"""
+
     def __init__(self, requested: float, current: float):
         super().__init__(f"残高不足です (申請: {requested}円 / 現在の残高: {current}円)")
         self.requested = requested
@@ -20,6 +20,7 @@ class InsufficientBalanceError(DomainError):
 
 class InvalidAmountError(DomainError):
     """金額不正例外"""
+
     def __init__(self, amount: float):
         super().__init__(f"0円よりも大きな金額を指定してください ({amount}円)")
         self.amount = amount
@@ -43,6 +44,7 @@ class Transaction:
 # TransactionHistory (ファーストクラス・コレクション)
 class TransactionHistory:
     """取引履歴のリストとその操作をカプセル化"""
+
     def __init__(self):
         self._transactions: list[Transaction] = []
         self._next_id: int = 1
@@ -67,6 +69,7 @@ class TransactionHistory:
 # BankAccount (ドメインエンティティ)
 class BankAccount:
     """口座の状態と検証を担当。I/Oは行わない"""
+
     def __init__(self, owner: str, initial_balance: float = 0.0):
         if initial_balance < 0:
             raise InvalidAmountError(initial_balance)
@@ -140,7 +143,8 @@ if __name__ == "__main__":
     print("\n--- 3. 取引履歴の確認 ---")
     for tx in account.history.all:
         time_str = tx.timestamp.strftime("%H:%M:%S")
-        print(f" ID:{tx.id} | 時間:{time_str} | 種別:{tx.type.value} | 金額:{tx.amount}円")
+        print(
+            f" ID:{tx.id} | 時間:{time_str} | 種別:{tx.type.value} | 金額:{tx.amount}円")
 
     print("\n--- 4. 防御的コピーの確認 ---")
     # 外から history.all に要素を追加しようとしても、tuple なのでエラーになる
