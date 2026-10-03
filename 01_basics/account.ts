@@ -1,76 +1,166 @@
 // 01_basics/account.ts
 
-export class BankAccount {
-    // コンストラクタの引数に private / readonly をつけると、
-    // フィールドの宣言と初期化を同時に行うことができる
-    constructor(
-        public readonly owner: string,
-        private _balance: number = 0
-    ) {
-        if (_balance < 0) {
-            this._balance = 0;
-        }
-    }
-
-    // ゲッター (Python の @property に相当)
-    get balance(): number {
-        return this._balance
-    }
-
-    /**
-     * 預金する
-     */
-    public deposit(amount: number): boolean {
-        if (amount <= 0) {
-            console.log(`[${this.owner}] 預金失敗: 0円よりも大きな金額を指定してください (${amount}円)`);
-            return false;
-        }
-
-        this._balance += amount;
-        console.log(`[${this.owner}] 預金成功: ${amount}円 (現在の残高: ${this._balance}円)`);
-        return true;
-    }
-
-    /**
-     * 引き出す
-     */
-    public withdraw(amount: number): boolean {
-        if (amount <= 0) {
-            console.log(`[${this.owner}] 引き出し失敗: 0円以上の金額を指定してください (${amount}円)`);
-            return false;
-        }
-
-        if (amount > this._balance) {
-            console.log(`[${this.owner}] 引き出し失敗: 残高不足です (現在の残高: ${this._balance}円)`);
-            return false;
-        }
-
-        this._balance -= amount;
-        console.log(`[${this.owner}] 引き出し成功: ${amount}円 (現在の残高: ${this._balance}円)`);
-        return true;
-    }
+// ドメイン例外の定義 ---
+export class DomainError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DomainError";
+  }
 }
 
-// 動作確認用メイン処理
+export class InsufficientBalanceError extends DomainError {
+  constructor(
+    public readonly requested: number,
+    public readonly current: number
+  ) {
+    super(`残高不足です (申請: ${requested}円 / 現在の残高: ${current}円)`);
+    this.name = "InsufficientBalanceError";
+  }
+}
+
+export class InvalidAmountError extends DomainError {
+  constructor(public readonly amount: number) {
+    super(`1円以上の有効な金額を指定してください (${amount}円)`);
+    this.name = "InvalidAmountError";
+  }
+}
+
+// Transaction (値オブジェクト / イミュータブル) ---
+export enum TransactionType {
+  DEPOSIT = "預金",
+  WITHDRAW = "引き出し",
+}
+
+export interface Transaction {
+  readonly id: number;
+  readonly type: TransactionType;
+  readonly amount: number;
+  readonly timestamp: Date;
+}
+
+// TransactionHistory (ファーストクラス・コレクション) ---
+export class TransactionHistory {
+  private _transactions: Transaction[] = [];
+  private _nextId: number = 1;
+
+  public add(type: TransactionType, amount: number): Transaction {
+    const tx: Transaction = {
+      id: this._nextId++,
+      type,
+      amount,
+      timestamp: new Date(),
+    };
+    this._transactions.push(tx);
+    return tx;
+  }
+
+  /**
+   * 外部から push 等で直接変更されないよう ReadonlyArray を返し、
+   * 配列自体も浅いコピー（[...array]）して渡す（防御的コピー）
+   */
+  get all(): ReadonlyArray<Transaction> {
+    return [...this._transactions];
+  }
+}
+
+// BankAccount (ドメインエンティティ) ---
+export class BankAccount {
+  private _balance: number;
+  private readonly _history: TransactionHistory;
+
+  constructor(
+    public readonly owner: string,
+    initialBalance: number = 0
+  ) {
+    if (initialBalance < 0) {
+      throw new InvalidAmountError(initialBalance);
+    }
+
+    this._balance = initialBalance;
+    this._history = new TransactionHistory();
+  }
+
+  get balance(): number {
+    return this._balance;
+  }
+
+  get history(): TransactionHistory {
+    return this._history;
+  }
+
+  public deposit(amount: number): number {
+    if (amount <= 0) {
+      throw new InvalidAmountError(amount);
+    }
+
+    this._balance += amount;
+    this._history.add(TransactionType.DEPOSIT, amount);
+    return this._balance;
+  }
+
+  public withdraw(amount: number): number {
+    if (amount <= 0) {
+      throw new InvalidAmountError(amount);
+    }
+    if (amount > this._balance) {
+      throw new InsufficientBalanceError(amount, this._balance);
+    }
+
+    this._balance -= amount;
+    this._history.add(TransactionType.WITHDRAW, amount);
+    return this._balance;
+  }
+}
+
+// =====================================================================
+// 利用側 (メイン処理): ログ出力やエラーハンドリング (UIの役割) をここで行う
+// =====================================================================
 function main() {
-  console.log("--- 1. アカウントの作成 ---");
   const account = new BankAccount("Alice", 1000);
-  console.log(`名義人: ${account.owner}`);
-  console.log(`初期残高: ${account.balance}円`);
 
-  console.log("\n--- 2. 正常な取引 ---");
-  account.deposit(500);
-  account.withdraw(300);
+  console.log("--- 1. 正常な取引 ---");
+  try {
+    let newBalance = account.deposit(500);
+    console.log(`[${account.owner}] 預金成功! 現在の残高: ${newBalance}円`);
 
-  console.log("\n--- 3. 不正な操作の検証 ---");
-  account.deposit(-100);  // 失敗するはず
-  account.withdraw(2000); // 残高不足で失敗するはず
+    newBalance = account.withdraw(300);
+    console.log(`[${account.owner}] 引き出し成功! 現在の残高: ${newBalance}円`);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      console.error(`エラー発生: ${error.message}`);
+    }
+  }
 
-  console.log("\n--- 4. カプセル化の確認 ---");
-  // TSの静的チェックにより、以下のコードはコンパイルエラー（赤波線）になります：
-  // account.balance = 999999; // Error: Cannot assign to 'balance' because it is a read-only property.
-  // account.owner = "Bob";     // Error: Cannot assign to 'owner' because it is a read-only property.
-  // account._balance = 999999; // Error: Property '_balance' is private and only accessible within class 'BankAccount'.
+  console.log("\n--- 2. 不正な取引と例外の捕捉 ---");
+  // 不正な預金
+  try {
+    account.deposit(-100);
+  } catch (error) {
+    if (error instanceof InvalidAmountError) {
+      console.error(`[失敗ログ] ${error.message}`);
+    }
+  }
+
+  // 残高不足の引き出し
+  try {
+    account.withdraw(5000);
+  } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      console.error(`[失敗ログ] ${error.message}`);
+    }
+  }
+
+  console.log("\n--- 3. 取引履歴の確認 ---");
+  for (const tx of account.history.all) {
+    const timeStr = tx.timestamp.toLocaleTimeString("ja-JP");
+    console.log(` ID:${tx.id} | 時間:${timeStr} | 種別:${tx.type} | 金額:${tx.amount}円`);
+  }
+
+  console.log("\n--- 4. 防御的コピーと readonly の確認 ---");
+  const historyList = account.history.all;
+  // historyList.push(...) // TS Error: Property 'push' does not exist on type 'readonly Transaction[]'.
+  // historyList[0].amount = 999999; // TS Error: Cannot assign to 'amount' because it is a read-only property.
+  console.log(`現在の履歴件数: ${historyList.length}件 (型定義とコンパイルチェックで完全保護)`);
 }
 
 main();
