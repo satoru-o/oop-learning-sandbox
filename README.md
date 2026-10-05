@@ -37,15 +37,15 @@ npx tsc --init
 ├── tsconfig.json            # TS コンパイル設定
 ├── README.md
 │
-├── 01_basics/               # クラス・インスタンス・カプセル化
+├── 01_basics/               # カプセル化・SRP・コンポジション（銀行口座）
 │   ├── account.py
 │   └── account.ts
-├── 02_inheritance/          # 継承・ポリモーフィズム
-│   ├── rpg_battle.py
-│   └── rpg_battle.ts
-├── 03_design_patterns/      # デザインパターン（Strategy, Factory等）
-│   ├── payment.py
-│   └── payment.ts
+├── 02_inheritance/          # 継承・ポリモーフィズム（通知システム）
+│   ├── notification.py
+│   └── notification.ts
+├── 03_design_patterns/      # デザインパターン（Strategy）
+│   ├── pricing.py
+│   └── pricing.ts
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -71,24 +71,25 @@ npx ts-node 01_basics/account.ts
 
 ## 🎯 学習ロードマップ & お題案
 
-### Step 1: クラスの基本とカプセル化 (`01_basics/`)
+### Step 1: カプセル化・単一責任・コンポジション (`01_basics/`)
 
-* **お題: 銀行口座 (`account.py` / `account.ts`)**
-* 残高（`balance`）を外部から直接変更できないよう隠蔽する。
-* `deposit(amount)` (預金) と `withdraw(amount)` (引き出し) メソッド経由でのみ更新を許可する。
+* **お題: 銀行口座と取引履歴 (`account.py` / `account.ts`)**
+* `Transaction`（値オブジェクト）、`TransactionHistory`（ファーストクラス・コレクション）、`BankAccount`（ドメインエンティティ）に責務を分割する。
+* 残高（`balance`）は外部から直接変更できないよう隠蔽し、`deposit(amount)` / `withdraw(amount)` 経由でのみ更新する。
+* クラス内では `print` / `console.log` を使わず、不正な金額や残高不足はカスタム例外（`InsufficientBalanceError` など）で表現する。
 
 ### Step 2: 継承とポリモーフィズム (`02_inheritance/`)
 
-* **お題: 簡易RPGの戦闘システム (`rpg_battle.py` / `rpg_battle.ts`)**
-* 親クラス/抽象クラス `Character` を作成。
-* 継承して `Hero`, `Wizard`, `Monster` を定義。
-* 各クラスで `attack(target)` メソッドをオーバーライドし、固有の攻撃処理を書く。
+* **お題: マルチチャネル通知システム (`notification.py` / `notification.ts`)**
+* 抽象基底クラス `BaseNotification` を作成し、共通処理（`format_message`）を集約、`send(recipient, body)` を抽象メソッドにする。
+* 継承して `EmailNotification`, `SlackNotification`, `SmsNotification` を定義し、チャネル固有の送信ロジックを実装する。
+* `NotificationService` が具象クラスを意識せず、全チャネルへ一括送信する。
 
 ### Step 3: 設計パターンにチャレンジ (`03_design_patterns/`)
 
-* **お題: 柔軟な決済処理 (Strategyパターン)**
-* `PaymentStrategy` インターフェースを定義。
-* `CreditCardPayment`, `PayPayPayment` などの実装を動的に切り替えられる構造を作る。
+* **お題: 価格計算エンジン（Strategy パターン）**
+* `DiscountStrategy` インターフェースを定義。
+* `RegularPricing`, `FixedDiscount`, `PercentageDiscount`, `BulkDiscount` を実装し、`ShoppingCart` が戦略を動的に切り替えられる構造を作る。
 
 ---
 
