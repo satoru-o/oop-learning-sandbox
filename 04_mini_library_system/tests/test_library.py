@@ -16,8 +16,10 @@ from errors import (
     ReservationNotFoundError,
     UnpaidFeeError,
 )
+from late_fee import CappedLateFee, PerDayLateFee, WeekendFreeLateFee
 from library import Library
 from models import REGULAR, STUDENT, Book, Member
+from repository import InMemoryRepository
 
 TODAY = date(2026, 10, 1)
 
@@ -384,3 +386,57 @@ def test_reservationsは読み取り専用のtuple(library):
     library.borrow("m1", "b1", TODAY)
     library.reserve("m2", "b1", TODAY)
     assert isinstance(library.reservations, tuple)
+
+
+class TestLateFeeRule:
+    """延滞料ルールの差し替え。TODAY(10/1・木曜)に借りると、一般は10/15・学生は10/22(どちらも木曜)が期限"""
+
+    @staticmethod
+    def _library(rule=None, repository=None) -> Library:
+        lib = Library(repository, late_fee_rule=rule)
+        if not lib.state.books:
+            lib.add_book(Book("b1", "本1"))
+            lib.add_member(Member("m1", "一般太郎", REGULAR))
+            lib.add_member(Member("m2", "学生花子", STUDENT))
+        return lib
+
+    @staticmethod
+    def _return_late(lib: Library, member_id: str, days_late: int) -> int:
+        loan = lib.borrow(member_id, "b1", TODAY)
+        return lib.return_book("b1", loan.due_on + timedelta(days=days_late)).late_fee
+
+    def test_何も指定しなければ日数かける単価(self):
+        assert self._return_late(self._library(), "m1", 7) == 70
+
+    def test_PerDayLateFeeを明示しても同じ(self):
+        assert self._return_late(self._library(PerDayLateFee()), "m1", 7) == 70
+
+    def test_土日免除では土日を数えない(self):
+        assert self._return_late(self._library(WeekendFreeLateFee()), "m1", 7) == 50
+
+    def test_上限額を超えない(self):
+        assert self._return_late(self._library(CappedLateFee(PerDayLateFee(), 60)), "m1", 7) == 60
+
+    def test_会員種別の単価が使われる(self):
+        rule = WeekendFreeLateFee()
+        assert self._return_late(self._library(rule), "m2", 7) == 25  # 学生 5円 × 平日5日
+
+    def test_組み合わせたルールも使える(self):
+        rule = CappedLateFee(WeekendFreeLateFee(), cap=40)
+        assert self._return_late(self._library(rule), "m1", 7) == 40
+
+    def test_未払い額と支払い額にもルールが反映される(self):
+        lib = self._library(WeekendFreeLateFee())
+        self._return_late(lib, "m1", 7)
+
+        with pytest.raises(UnpaidFeeError) as exc:
+            lib.borrow("m1", "b1", day(40))
+        assert exc.value.unpaid_fee == 50
+        assert lib.pay_fee("m1") == 50
+
+    def test_ルールを変えても確定済みの延滞料は変わらない(self):
+        repo = InMemoryRepository()
+        self._return_late(self._library(repository=repo), "m1", 7)  # 標準ルールで 70円
+
+        restarted = self._library(WeekendFreeLateFee(), repository=repo)  # 再起動後にルール変更
+        assert restarted.pay_fee("m1") == 70

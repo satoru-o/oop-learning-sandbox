@@ -13,6 +13,7 @@ from errors import (
     LoanLimitExceededError,
     UnpaidFeeError,
 )
+from late_fee import DEFAULT_LATE_FEE_RULE, LateFeeRule
 from models import Loan, MembershipPolicy, Reservation
 
 HOLD_DAYS = 7  # 返却された本を予約者のために取り置く日数
@@ -23,10 +24,14 @@ def calc_due_date(borrowed_on: date, policy: MembershipPolicy) -> date:
     return borrowed_on + timedelta(days=policy.loan_days)
 
 
-def calc_late_fee(due_on: date, returned_on: date, policy: MembershipPolicy) -> int:
-    """延滞料 = 延滞日数 × 単価。期限内なら0円（ルール4）"""
-    late_days = max(0, (returned_on - due_on).days)
-    return late_days * policy.late_fee_per_day
+def calc_late_fee(
+    due_on: date,
+    returned_on: date,
+    policy: MembershipPolicy,
+    rule: LateFeeRule = DEFAULT_LATE_FEE_RULE,
+) -> int:
+    """延滞料（ルール4）。数え方・上限は rule（Strategy）に、単価は会員種別に任せる"""
+    return rule.calculate(due_on, returned_on, policy.late_fee_per_day)
 
 
 def is_book_available(loans: Iterable[Loan], book_id: str) -> bool:

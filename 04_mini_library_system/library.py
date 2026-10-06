@@ -12,6 +12,7 @@ from errors import (
     MemberNotFoundError,
     ReservationNotFoundError,
 )
+from late_fee import DEFAULT_LATE_FEE_RULE, LateFeeRule
 from models import Book, Loan, Member, Reservation
 from repository import InMemoryRepository, LibraryRepository
 from rules import (
@@ -30,8 +31,13 @@ from state import LibraryState
 
 
 class Library:
-    def __init__(self, repository: LibraryRepository | None = None):
+    def __init__(
+        self,
+        repository: LibraryRepository | None = None,
+        late_fee_rule: LateFeeRule | None = None,
+    ):
         self._repository = repository if repository is not None else InMemoryRepository()
+        self._late_fee_rule = late_fee_rule if late_fee_rule is not None else DEFAULT_LATE_FEE_RULE
         self._state = self._repository.load()
 
     @property
@@ -84,7 +90,7 @@ class Library:
         self._get_book(book_id)
         index, loan = self._find_active_loan(book_id)
 
-        late_fee = calc_late_fee(loan.due_on, today, loan.member.policy)
+        late_fee = calc_late_fee(loan.due_on, today, loan.member.policy, self._late_fee_rule)
         closed = loan.closed(today, late_fee)
         loans = state.loans[:index] + (closed,) + state.loans[index + 1 :]
         # 返却日から取り置き期限が始まる
@@ -162,6 +168,7 @@ def demo() -> None:
     from pathlib import Path
 
     from errors import LibraryError, StorageError
+    from late_fee import CappedLateFee, PerDayLateFee, WeekendFreeLateFee
     from models import REGULAR, STUDENT
     from repository import JsonFileRepository
 
@@ -201,9 +208,9 @@ def demo() -> None:
     attempt("太郎が延滞料を支払う", lambda: library.pay_fee("m1"))
     attempt("太郎が b4 を借りる", lambda: library.borrow("m1", "b4", late).due_on)
 
-    def new_library(repository=None) -> Library:
+    def new_library(repository=None, late_fee_rule=None) -> Library:
         """本1冊と会員3人（太郎・花子・三郎）だけの、予約・保存シナリオ用の図書館"""
-        lib = Library(repository)
+        lib = Library(repository, late_fee_rule=late_fee_rule)
         lib.add_book(Book("b1", "本1"))
         lib.add_member(Member("m1", "一般太郎", REGULAR))
         lib.add_member(Member("m2", "学生花子", STUDENT))
@@ -256,6 +263,22 @@ def demo() -> None:
 
         path.write_text("{ broken", encoding="utf-8")
         attempt("壊れたファイルで起動", lambda: Library(JsonFileRepository(path)))
+
+    print("【8】延滞料ルールの差し替え（同じ7日延滞でも、ルールで金額が変わる）")
+    fee_rules = [
+        ("標準: 日数×単価", PerDayLateFee()),
+        ("土日免除", WeekendFreeLateFee()),
+        ("上限60円", CappedLateFee(PerDayLateFee(), cap=60)),
+        ("土日免除 + 上限40円", CappedLateFee(WeekendFreeLateFee(), cap=40)),
+    ]
+    for label, fee_rule in fee_rules:
+        lib = new_library(late_fee_rule=fee_rule)
+        loan = lib.borrow("m1", "b1", today)
+        late = after(loan.due_on, 7)  # 期限（木）の7日後 = 金土日月火水木
+        attempt(
+            f"太郎が7日延滞して返却 [{label}]",
+            lambda lib=lib, late=late: lib.return_book("b1", late).late_fee,
+        )
 
 
 if __name__ == "__main__":

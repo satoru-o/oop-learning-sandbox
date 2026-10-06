@@ -49,6 +49,7 @@ npx tsc --init
 │   └── pricing.ts
 ├── 04_mini_library_system/          # 総合演習（図書館の貸出管理・Pythonのみ）
 │   ├── errors.py / models.py / state.py / rules.py
+│   ├── late_fee.py                        # 延滞料ルール（Strategy）
 │   ├── serialization.py / repository.py   # 保存・読み込み（外界との境界）
 │   ├── library.py
 │   └── tests/               # pytest

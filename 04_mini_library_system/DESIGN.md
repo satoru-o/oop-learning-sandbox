@@ -8,6 +8,7 @@
 - 延滞料と支払状況は `Loan` が持つ。会員の未払い額は、その会員の `Loan` の未払い分の合計で求める
 - 延滞料は**返却時に確定**する（返却前の延滞中は料金が未確定）
 - **予約**: 貸出中（または予約者に取り置き中）の本に順番待ちを入れられる。待ち行列は FIFO で、先頭の会員だけが借りられる。借りる/キャンセルで待ち行列から外れる。取り置きは返却から7日間で、過ぎると失効して次の人に移る（期限切れの判定は、操作されたときに行う遅延評価）
+- **延滞料ルールの差し替え**: 延滞料の「数え方・上限」を Strategy（`LateFeeRule`）にし、`Library` に注入する。`WeekendFreeLateFee`（土日は数えない）や `CappedLateFee`（上限額。他のルールを包む）を組み合わせられる。会員種別ごとの違いは従来どおり単価（`MembershipPolicy.late_fee_per_day`）に任せる
 - **永続化**: 状態を不変の `LibraryState`（蔵書・会員・貸出・予約）にまとめ、`LibraryRepository` で JSON ファイルに保存する（DB のふり）。操作は「新しい状態を計算（純粋）→ **保存 → 差し替え**」の順で行い、保存に失敗したらメモリの状態も変えない（失敗した操作は何も変えない）
 - **純粋関数の核 + 状態を持つ殻**（functional core, imperative shell）
   - 期限計算・延滞料計算・貸出可否の判定は `rules.py` の純粋関数にする
@@ -20,6 +21,7 @@
 | --- | --- | --- |
 | 核（純粋） | `rules.py` の関数群 | 引数だけで結果が決まる。副作用なし。日付も引数で受ける |
 | 核（値） | `Book` / `Member` / `Loan` / `MembershipPolicy` | イミュータブルな値オブジェクト |
+| 核（Strategy） | `late_fee.py` の `LateFeeRule` 群 | 延滞料の計算方法。状態を持たない不変の値で、`Library` に注入して差し替える |
 | 核（値） | `LibraryState` | 蔵書・会員・貸出・予約をまとめた不変のスナップショット |
 | 核（純粋） | `serialization.py` | `LibraryState` ⇔ dict（JSON 化できる形）の変換。ファイルは触らない |
 | 殻（状態） | `Library` | 現在の `LibraryState` を保持し、核で次の状態を計算して Repository に保存、成功したら差し替える |
@@ -178,7 +180,7 @@ classDiagram
     class rules {
         <<module / 純粋関数>>
         +calc_due_date(borrowed_on, policy) date
-        +calc_late_fee(due_on, returned_on, policy) int
+        +calc_late_fee(due_on, returned_on, policy, rule) int
         +is_book_available(loans, book_id) bool
         +count_active_loans(loans, member_id) int
         +total_unpaid_fee(loans, member_id) int
@@ -192,6 +194,7 @@ classDiagram
         <<状態を持つ殻>>
         -LibraryState state
         -LibraryRepository repository
+        -LateFeeRule late_fee_rule
         +add_book(book)
         +add_member(member)
         +borrow(member_id, book_id, today) Loan
@@ -228,6 +231,22 @@ classDiagram
         <<module / 純粋関数>>
         +state_to_dict(state) dict
         +state_from_dict(data) LibraryState
+    }
+
+    class LateFeeRule {
+        <<Strategy>>
+        +calculate(due_on, returned_on, daily_fee) int
+    }
+    class PerDayLateFee {
+        <<frozen dataclass>>
+    }
+    class WeekendFreeLateFee {
+        <<frozen dataclass>>
+    }
+    class CappedLateFee {
+        <<frozen dataclass>>
+        +LateFeeRule inner
+        +int cap
     }
 
     class StorageError {
@@ -285,6 +304,12 @@ classDiagram
     Loan --> Book : 借りた本
     Library o-- LibraryState : 現在の状態
     Library --> LibraryRepository : 保存・読み込み
+    Library --> LateFeeRule : 注入（デフォルトは PerDayLateFee）
+    rules ..> LateFeeRule : 延滞料の計算を委譲
+    LateFeeRule <|-- PerDayLateFee
+    LateFeeRule <|-- WeekendFreeLateFee
+    LateFeeRule <|-- CappedLateFee
+    CappedLateFee o-- LateFeeRule : 包む（Decorator）
     LibraryState o-- Book : 蔵書
     LibraryState o-- Member : 会員
     LibraryState o-- Loan : 貸出記録
@@ -379,12 +404,15 @@ sequenceDiagram
     actor 会員
     participant Lib as Library（殻）
     participant R as rules（純粋関数）
+    participant F as LateFeeRule（Strategy）
     participant L as Loan（値）
 
     会員->>Lib: return_book(book_id, today)
     Lib->>Lib: 貸出中の Loan を探す
-    Lib->>R: calc_late_fee(loan.due_on, today, policy)
-    R-->>Lib: 延滞料（延滞日数 × 単価）
+    Lib->>R: calc_late_fee(loan.due_on, today, policy, late_fee_rule)
+    R->>F: calculate(due_on, returned_on, 単価)
+    F-->>R: 延滞料（ルール次第: 日数 × 単価 / 土日を除く / 上限あり）
+    R-->>Lib: 延滞料
     Lib->>L: closed(today, late_fee)
     L-->>Lib: 新しい Loan（返却済み）
     Lib->>Lib: loans 内の古い Loan を新しい Loan に置き換え
@@ -543,3 +571,7 @@ sequenceDiagram
 | 保存は一時ファイル + `os.replace` | 書き込み途中のクラッシュでも元のファイルが壊れない | 直接上書き |
 | 永続化の失敗は `StorageError`（`LibraryError` とは別系統） | 業務ルール違反とインフラ障害は、呼び出し側の対処が違う | `LibraryError` の子にする |
 | ファイルに `version` を持たせる | 将来の形式変更を検出できる | なし |
+| 延滞料の計算は Strategy（`LateFeeRule`）として切り出す | 運用ルール（土日免除・上限など）を、`rules` や `Library` を書き換えずに足せる（OCP）。03 の学びを活かす | `if` 分岐で `rules.calc_late_fee` に直接書く / 関数（Callable）を渡す |
+| 上限額は `CappedLateFee` が他のルールを包む（Decorator） | 「土日免除 + 上限」のように、ルールを組み合わせられる。ルールごとに上限付きの派生クラスを作らずに済む | 各ルールが上限引数を持つ |
+| ルールは `Library` 全体に注入し、会員種別ごとの違いは単価に任せる | 「数え方・上限」は運用で決まる全体ルール、「単価」は会員種別の違い、と責務を分ける | `MembershipPolicy` にルールを持たせる（永続化のレジストリが複雑になる） |
+| ルール自体は永続化しない | 設定でありデータではない。金額は返却時に `Loan` へ確定して保存されるので、ルール変更は過去の記録に影響しない | ルール名を保存して復元する |

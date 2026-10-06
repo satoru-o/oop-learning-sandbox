@@ -11,6 +11,7 @@ from errors import (
     LoanLimitExceededError,
     UnpaidFeeError,
 )
+from late_fee import CappedLateFee, WeekendFreeLateFee
 from models import REGULAR, STUDENT, Book, Loan, Member, Reservation
 from rules import (
     calc_due_date,
@@ -50,6 +51,24 @@ class TestCalcLateFee:
     )
     def test_延滞料は延滞日数かける単価(self, returned_on, policy, expected):
         assert calc_late_fee(self.due_on, returned_on, policy) == expected
+
+
+class TestCalcLateFeeWithRule:
+    due_on = date(2026, 10, 15)  # 木曜
+    returned_on = date(2026, 10, 22)  # 7日延滞（平日は5日）
+
+    def test_ルールを渡さなければ日数かける単価(self):
+        assert calc_late_fee(self.due_on, self.returned_on, REGULAR) == 70
+
+    def test_ルールに計算を委譲する(self):
+        assert calc_late_fee(self.due_on, self.returned_on, REGULAR, WeekendFreeLateFee()) == 50
+
+    def test_単価は会員種別から渡される(self):
+        assert calc_late_fee(self.due_on, self.returned_on, STUDENT, WeekendFreeLateFee()) == 25
+
+    def test_ルールは組み合わせられる(self):
+        rule = CappedLateFee(WeekendFreeLateFee(), cap=40)
+        assert calc_late_fee(self.due_on, self.returned_on, REGULAR, rule) == 40
 
 
 class TestLoansQueries:
