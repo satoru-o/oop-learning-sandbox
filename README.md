@@ -33,6 +33,7 @@ npx tsc --init
 .
 ├── .devcontainer/
 │   └── devcontainer.json    # Dev Container 設定
+├── pyproject.toml           # Python 用設定（uv / pytest）
 ├── package.json             # TS 用設定（自動生成）
 ├── tsconfig.json            # TS コンパイル設定
 ├── README.md
@@ -46,6 +47,10 @@ npx tsc --init
 ├── 03_design_patterns/      # デザインパターン（Strategy）
 │   ├── pricing.py
 │   └── pricing.ts
+├── 04_mini_library_system/          # 総合演習（図書館の貸出管理・Pythonのみ）
+│   ├── errors.py / models.py / rules.py
+│   ├── library.py
+│   └── tests/               # pytest
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -59,6 +64,19 @@ npx tsc --init
 
 ```bash
 python 01_basics/account.py
+```
+
+### Python のテスト（`uv` + `pytest`）
+
+```bash
+uv run pytest
+```
+
+### Python のリント・整形（`ruff`）
+
+```bash
+uv run ruff check .     # リント
+uv run ruff format .    # 整形
 ```
 
 ### TypeScript (`ts-node` で直接実行)
@@ -90,6 +108,13 @@ npx ts-node 01_basics/account.ts
 * **お題: 価格計算エンジン（Strategy パターン）**
 * `DiscountStrategy` インターフェースを定義。
 * `RegularPricing`, `FixedDiscount`, `PercentageDiscount`, `BulkDiscount` を実装し、`ShoppingCart` が戦略を動的に切り替えられる構造を作る。
+
+### Step 4: 総合演習・ミニシステムを設計する (`04_mini_library_system/`)
+
+* **お題: 図書館の貸出管理システム（Python のみ）**
+* 本・会員・貸出を設計し、会員種別ごとの貸出上限・期間・延滞料といった業務ルールを実装する。
+* 責務分割・継承/Strategy の使い分け・カスタム例外など、Step 1〜3 の要素を自力で組み合わせる。
+* 詳細は `04_mini_library_system/README.md` を参照。
 
 ---
 
