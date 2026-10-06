@@ -1,14 +1,26 @@
-from datetime import date
+from dataclasses import replace
+from datetime import date, timedelta
 
 import pytest
-from errors import BookUnavailableError, LoanLimitExceededError, UnpaidFeeError
-from models import REGULAR, STUDENT, Book, Loan
+from errors import (
+    AlreadyBorrowedError,
+    BookAvailableError,
+    BookReservedError,
+    BookUnavailableError,
+    DuplicateReservationError,
+    LoanLimitExceededError,
+    UnpaidFeeError,
+)
+from models import REGULAR, STUDENT, Book, Loan, Member, Reservation
 from rules import (
     calc_due_date,
     calc_late_fee,
     check_can_borrow,
+    check_can_reserve,
     count_active_loans,
     is_book_available,
+    is_reserved_by_other,
+    settle_queue,
     total_unpaid_fee,
 )
 
@@ -108,3 +120,117 @@ class TestCheckCanBorrow:
             check_can_borrow(REGULAR, active_count=3, unpaid_fee=10, available=False)
         with pytest.raises(BookUnavailableError):
             check_can_borrow(REGULAR, active_count=3, unpaid_fee=0, available=False)
+
+
+def _reservation(member_id: str, book_id: str = "b1") -> Reservation:
+    return Reservation(
+        Member(member_id, member_id, REGULAR), Book(book_id, book_id), date(2026, 10, 1)
+    )
+
+
+class TestIsReservedByOther:
+    def test_予約がなければFalse(self):
+        assert not is_reserved_by_other([], "b1", "m1")
+
+    def test_先頭が他の会員ならTrue(self):
+        assert is_reserved_by_other([_reservation("m2")], "b1", "m1")
+
+    def test_先頭が自分ならFalse(self):
+        assert not is_reserved_by_other([_reservation("m1"), _reservation("m2")], "b1", "m1")
+
+    def test_自分が予約していても先頭でなければTrue(self):
+        assert is_reserved_by_other([_reservation("m2"), _reservation("m1")], "b1", "m1")
+
+    def test_別の本の予約は関係ない(self):
+        assert not is_reserved_by_other([_reservation("m2", "b2")], "b1", "m1")
+
+
+class TestCheckCanBorrowWithReservation:
+    def test_他人が先に予約していると借りられない(self):
+        with pytest.raises(BookReservedError):
+            check_can_borrow(
+                REGULAR, active_count=0, unpaid_fee=0, available=True, reserved_by_other=True
+            )
+
+    def test_判定順は未払い_予約_貸出中_上限(self):
+        with pytest.raises(UnpaidFeeError):
+            check_can_borrow(REGULAR, 3, 10, False, reserved_by_other=True)
+        with pytest.raises(BookReservedError):
+            check_can_borrow(REGULAR, 3, 0, False, reserved_by_other=True)
+
+    def test_reserved_by_otherを省略すれば従来どおり(self):
+        check_can_borrow(REGULAR, active_count=0, unpaid_fee=0, available=True)
+
+
+class TestCheckCanReserve:
+    def test_貸出中の本は予約できる(self, active_loan):
+        check_can_reserve([active_loan], [], "b1", "m2")
+
+    def test_取り置き中の本は3人目も予約できる(self):
+        # 本は返却済み（貸出可能）だが、m2 が予約済みで取り置かれている
+        check_can_reserve([], [_reservation("m2")], "b1", "m3")
+
+    def test_借りられる本は予約できない(self):
+        with pytest.raises(BookAvailableError):
+            check_can_reserve([], [], "b1", "m1")
+
+    def test_同じ本の二重予約はできない(self, active_loan):
+        with pytest.raises(DuplicateReservationError):
+            check_can_reserve([active_loan], [_reservation("m2")], "b1", "m2")
+
+    def test_自分が借りている本は予約できない(self, active_loan):
+        with pytest.raises(AlreadyBorrowedError):
+            check_can_reserve([active_loan], [], "b1", "m1")
+
+
+def _day(n: int) -> date:
+    """基準日(2026-10-01)から n 日後"""
+    return date(2026, 10, 1) + timedelta(days=n)
+
+
+def _held(member_id: str, until: date | None) -> Reservation:
+    return replace(_reservation(member_id), hold_until=until)
+
+
+class TestSettleQueue:
+    def test_空の待ち行列は空のまま(self):
+        assert settle_queue([], available=True, today=_day(0)) == []
+
+    def test_貸出中の間は取り置きが始まらない(self):
+        queue = [_held("m1", None), _held("m2", None)]
+        assert settle_queue(queue, available=False, today=_day(0)) == queue
+
+    def test_貸出可能になると先頭に7日間の取り置き期限が付く(self):
+        queue = [_held("m1", None), _held("m2", None)]
+        settled = settle_queue(queue, available=True, today=_day(0))
+
+        assert [r.hold_until for r in settled] == [_day(7), None]
+        assert [r.member.member_id for r in settled] == ["m1", "m2"]
+
+    def test_取り置き期限の当日までは有効(self):
+        queue = [_held("m1", _day(7)), _held("m2", None)]
+        assert settle_queue(queue, available=True, today=_day(7)) == queue
+
+    def test_期限を過ぎると失効し_次の人は失効日から7日間(self):
+        queue = [_held("m1", _day(7)), _held("m2", None)]
+        settled = settle_queue(queue, available=True, today=_day(8))
+
+        assert [r.member.member_id for r in settled] == ["m2"]
+        assert settled[0].hold_until == _day(14)
+
+    def test_何日も放置されても失効日から順に連鎖して判定する(self):
+        # m1: 7日目 / m2: 14日目 / m3: 21日目 まで。15日目に判定すると m3 が取り置き中
+        queue = [_held("m1", _day(7)), _held("m2", None), _held("m3", None)]
+        settled = settle_queue(queue, available=True, today=_day(15))
+
+        assert [r.member.member_id for r in settled] == ["m3"]
+        assert settled[0].hold_until == _day(21)
+
+    def test_全員失効すれば空になる(self):
+        queue = [_held("m1", _day(7)), _held("m2", None)]
+        assert settle_queue(queue, available=True, today=_day(30)) == []
+
+    def test_元の待ち行列は変更しない(self):
+        queue = [_held("m1", None)]
+        settle_queue(queue, available=True, today=_day(0))
+        assert queue[0].hold_until is None

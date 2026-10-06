@@ -67,3 +67,44 @@ class DuplicateMemberError(LibraryError):
     def __init__(self, member_id: str):
         super().__init__(f"すでに登録されている会員です (ID: {member_id})")
         self.member_id = member_id
+
+
+class BookReservedError(LibraryError):
+    """他の会員が先に予約しているため借りられない"""
+
+    def __init__(self):
+        super().__init__("この本は他の会員が予約しています")
+
+
+class BookAvailableError(LibraryError):
+    """借りられる本は予約できない"""
+
+    def __init__(self):
+        super().__init__("この本は貸出可能です。予約せずに借りられます")
+
+
+class DuplicateReservationError(LibraryError):
+    """同じ本を二重に予約できない"""
+
+    def __init__(self, member_id: str, book_id: str):
+        super().__init__(f"すでに予約しています (会員: {member_id} / 本: {book_id})")
+        self.member_id = member_id
+        self.book_id = book_id
+
+
+class AlreadyBorrowedError(LibraryError):
+    """自分が借りている本は予約できない"""
+
+    def __init__(self, member_id: str, book_id: str):
+        super().__init__(f"すでに借りている本です (会員: {member_id} / 本: {book_id})")
+        self.member_id = member_id
+        self.book_id = book_id
+
+
+class ReservationNotFoundError(LibraryError):
+    """キャンセルしようとした予約がない"""
+
+    def __init__(self, member_id: str, book_id: str):
+        super().__init__(f"予約がありません (会員: {member_id} / 本: {book_id})")
+        self.member_id = member_id
+        self.book_id = book_id

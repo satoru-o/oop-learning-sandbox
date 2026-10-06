@@ -31,6 +31,15 @@ class Member:
     policy: MembershipPolicy
 
 
+# Reservation (予約 / イミュータブル。待ち行列に並ぶ値)
+@dataclass(frozen=True)
+class Reservation:
+    member: Member
+    book: Book
+    reserved_on: date
+    hold_until: date | None = None  # 取り置きの最終日（この日まで借りられる）。未開始なら None
+
+
 # Loan (貸出記録 / イミュータブル。状態の変化は新しい Loan を返して表現する)
 @dataclass(frozen=True)
 class Loan:

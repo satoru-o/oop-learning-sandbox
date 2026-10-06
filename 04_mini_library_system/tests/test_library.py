@@ -2,13 +2,18 @@ from datetime import date, timedelta
 
 import pytest
 from errors import (
+    AlreadyBorrowedError,
+    BookAvailableError,
     BookNotFoundError,
     BookNotOnLoanError,
+    BookReservedError,
     BookUnavailableError,
     DuplicateBookError,
     DuplicateMemberError,
+    DuplicateReservationError,
     LoanLimitExceededError,
     MemberNotFoundError,
+    ReservationNotFoundError,
     UnpaidFeeError,
 )
 from library import Library
@@ -24,6 +29,7 @@ def library(regular_member, student_member) -> Library:
         lib.add_book(Book(f"b{i}", f"本{i}"))
     lib.add_member(regular_member)  # m1: 一般
     lib.add_member(student_member)  # m2: 学生
+    lib.add_member(Member("m3", "一般三郎", REGULAR))  # m3: 一般
     return lib
 
 
@@ -168,6 +174,213 @@ class TestPayFee:
             library.pay_fee("m999")
 
 
+class TestReserve:
+    @pytest.fixture
+    def on_loan(self, library) -> Library:
+        """m1 が b1 を借りている状態"""
+        library.borrow("m1", "b1", TODAY)
+        return library
+
+    def test_貸出中の本を予約できる(self, on_loan):
+        reservation = on_loan.reserve("m2", "b1", TODAY)
+        assert (reservation.member.member_id, reservation.book.book_id) == ("m2", "b1")
+        assert reservation.reserved_on == TODAY
+        assert on_loan.reservations == (reservation,)
+
+    def test_借りられる本は予約できない(self, library):
+        with pytest.raises(BookAvailableError):
+            library.reserve("m1", "b1", TODAY)
+
+    def test_二重予約や自分が借りている本の予約はできない(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        with pytest.raises(DuplicateReservationError):
+            on_loan.reserve("m2", "b1", TODAY)
+        with pytest.raises(AlreadyBorrowedError):
+            on_loan.reserve("m1", "b1", TODAY)
+
+    def test_存在しない会員や本は予約できない(self, on_loan):
+        with pytest.raises(MemberNotFoundError):
+            on_loan.reserve("m999", "b1", TODAY)
+        with pytest.raises(BookNotFoundError):
+            on_loan.reserve("m2", "b999", TODAY)
+
+    def test_失敗した予約は記録に残らない(self, library):
+        with pytest.raises(BookAvailableError):
+            library.reserve("m1", "b1", TODAY)
+        assert library.reservations == ()
+
+    def test_返却後は予約者以外は借りられず_予約者は借りられる(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        on_loan.return_book("b1", TODAY)
+
+        with pytest.raises(BookReservedError):
+            on_loan.borrow("m3", "b1", TODAY)
+        loan = on_loan.borrow("m2", "b1", TODAY)
+        assert loan.member.member_id == "m2"
+
+    def test_借りると予約は消化される(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        on_loan.return_book("b1", TODAY)
+        on_loan.borrow("m2", "b1", TODAY)
+        assert on_loan.reservations == ()
+
+    def test_予約は先着順に消化される(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        on_loan.reserve("m3", "b1", TODAY)  # 取り置き前でも3人目として並べる
+
+        on_loan.return_book("b1", TODAY)
+        with pytest.raises(BookReservedError):
+            on_loan.borrow("m3", "b1", TODAY)  # 先頭は m2
+        on_loan.borrow("m2", "b1", TODAY)
+
+        on_loan.return_book("b1", TODAY)
+        on_loan.borrow("m3", "b1", TODAY)  # 次は m3
+        assert on_loan.reservations == ()
+
+    def test_予約者でも貸出中の間は借りられない(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        with pytest.raises(BookUnavailableError):
+            on_loan.borrow("m2", "b1", TODAY)
+
+    def test_予約は他の本の貸出に影響しない(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        on_loan.borrow("m3", "b2", TODAY)
+
+    def test_取り置き中の本は他の会員がさらに予約できる(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        on_loan.return_book("b1", TODAY)  # 貸出可能だが m2 に取り置き
+        on_loan.reserve("m3", "b1", TODAY)
+        assert [r.member.member_id for r in on_loan.reservations] == ["m2", "m3"]
+
+    def test_借りるのに失敗したら予約は消化されない(self, on_loan):
+        on_loan.reserve("m2", "b1", TODAY)
+        # m2 を延滞料の未払い状態にする（学生: 期限10/22 → 2日延滞 = 10円）
+        on_loan.borrow("m2", "b2", TODAY)
+        on_loan.return_book("b2", date(2026, 10, 24))
+        on_loan.return_book("b1", date(2026, 10, 24))
+
+        with pytest.raises(UnpaidFeeError):
+            on_loan.borrow("m2", "b1", date(2026, 10, 24))
+        assert len(on_loan.reservations) == 1
+
+
+def day(n: int) -> date:
+    """基準日(TODAY)から n 日後"""
+    return TODAY + timedelta(days=n)
+
+
+class TestHoldExpiry:
+    """取り置き期限は、返却された日から7日間（7日目までは借りられる）"""
+
+    @pytest.fixture
+    def reserved(self, library) -> Library:
+        """m1 が b1 を借り、m2・m3 がこの順で予約している状態"""
+        library.borrow("m1", "b1", TODAY)
+        library.reserve("m2", "b1", TODAY)
+        library.reserve("m3", "b1", TODAY)
+        return library
+
+    def test_貸出中の間は取り置き期限が付かない(self, reserved):
+        assert [r.hold_until for r in reserved.reservations] == [None, None]
+
+    def test_返却すると先頭に返却日から7日の期限が付く(self, reserved):
+        reserved.return_book("b1", day(20))  # 延滞して返却しても、起点は返却日
+        assert [r.hold_until for r in reserved.reservations] == [day(27), None]
+
+    def test_7日目までは予約者が借りられる(self, reserved):
+        reserved.return_book("b1", day(3))
+        reserved.borrow("m2", "b1", day(10))
+
+    def test_期限切れで次の予約者に取り置きが移る(self, reserved):
+        reserved.return_book("b1", day(3))
+        with pytest.raises(BookReservedError):
+            reserved.borrow("m3", "b1", day(10))  # 10日目: まだ m2 の取り置き中
+
+        reserved.borrow("m3", "b1", day(11))  # 11日目: m2 は失効し、m3 の取り置きは 17日目まで
+
+    def test_期限切れの予約者は優先権を失い_行列から外れる(self, reserved):
+        reserved.return_book("b1", day(3))
+        reserved.borrow("m3", "b1", day(11))
+        assert reserved.reservations == ()  # m2 は失効、m3 は消化済み
+
+    def test_全員が失効すれば誰でも借りられる(self, library):
+        library.borrow("m1", "b1", TODAY)
+        library.reserve("m2", "b1", TODAY)
+        library.return_book("b1", day(3))
+        library.borrow("m3", "b1", day(11))  # 予約者でない m3 が借りられる
+
+    def test_期限切れの予約者も通常の貸出としては借りられる(self, library):
+        library.borrow("m1", "b1", TODAY)
+        library.reserve("m2", "b1", TODAY)
+        library.return_book("b1", day(3))
+        library.borrow("m2", "b1", day(11))
+
+    def test_未払いで借りられない先頭は期限切れで次の人に譲る(self, library):
+        library.borrow("m2", "b2", TODAY)
+        library.return_book("b2", day(24))  # m2: 学生の期限21日 + 3日延滞 = 15円
+        library.borrow("m1", "b1", day(24))
+        library.reserve("m2", "b1", day(24))
+        library.reserve("m3", "b1", day(24))
+        library.return_book("b1", day(25))
+
+        with pytest.raises(UnpaidFeeError):
+            library.borrow("m2", "b1", day(26))
+        library.borrow("m3", "b1", day(33))  # m2 の期限(32日目)が切れた翌日
+
+    def test_先頭がキャンセルすると次の人はキャンセル日から7日間(self, reserved):
+        reserved.return_book("b1", day(3))
+        reserved.cancel_reservation("m2", "b1", day(5))
+        assert [r.hold_until for r in reserved.reservations] == [day(12)]
+
+    def test_貸出中に先頭がキャンセルしても期限は始まらない(self, reserved):
+        reserved.cancel_reservation("m2", "b1", day(5))
+        assert [r.hold_until for r in reserved.reservations] == [None]
+
+    def test_予約は他の本の取り置き期限に影響しない(self, reserved):
+        reserved.borrow("m1", "b2", TODAY)
+        reserved.reserve("m3", "b2", TODAY)
+        reserved.return_book("b1", day(3))
+        by_book: dict[str, list[date | None]] = {}
+        for r in reserved.reservations:
+            by_book.setdefault(r.book.book_id, []).append(r.hold_until)
+        assert by_book == {"b1": [day(10), None], "b2": [None]}
+
+
+class TestCancelReservation:
+    def test_キャンセルすると待ち行列から外れる(self, library):
+        library.borrow("m1", "b1", TODAY)
+        library.reserve("m2", "b1", TODAY)
+
+        cancelled = library.cancel_reservation("m2", "b1", TODAY)
+        assert cancelled.member.member_id == "m2"
+        assert library.reservations == ()
+
+    def test_キャンセル後は次の人が借りられる(self, library):
+        library.borrow("m1", "b1", TODAY)
+        library.reserve("m2", "b1", TODAY)
+        library.reserve("m3", "b1", TODAY)
+        library.return_book("b1", TODAY)
+
+        library.cancel_reservation("m2", "b1", TODAY)
+        library.borrow("m3", "b1", TODAY)
+
+    def test_予約がなければキャンセルできない(self, library):
+        with pytest.raises(ReservationNotFoundError):
+            library.cancel_reservation("m2", "b1", TODAY)
+
+    def test_存在しない会員や本はキャンセルできない(self, library):
+        with pytest.raises(MemberNotFoundError):
+            library.cancel_reservation("m999", "b1", TODAY)
+        with pytest.raises(BookNotFoundError):
+            library.cancel_reservation("m2", "b999", TODAY)
+
+
 def test_loansは読み取り専用のtuple(library):
     library.borrow("m1", "b1", TODAY)
     assert isinstance(library.loans, tuple)
+
+
+def test_reservationsは読み取り専用のtuple(library):
+    library.borrow("m1", "b1", TODAY)
+    library.reserve("m2", "b1", TODAY)
+    assert isinstance(library.reservations, tuple)

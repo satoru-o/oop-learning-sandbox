@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 from datetime import date
 
 import pytest
-from models import REGULAR, STUDENT
+from models import REGULAR, STUDENT, Reservation
 
 
 def test_会員種別の定数がルール通り():
@@ -48,3 +48,14 @@ class TestLoan:
     def test_未払いがないLoanはpaidできない(self, active_loan):
         with pytest.raises(ValueError):
             active_loan.paid()
+
+
+def test_Reservationは変更できない(regular_member, book):
+    reservation = Reservation(regular_member, book, date(2026, 10, 1))
+    assert reservation.reserved_on == date(2026, 10, 1)
+    with pytest.raises(FrozenInstanceError):
+        reservation.reserved_on = date(2026, 10, 2)
+
+
+def test_Reservationのhold_untilは最初は未設定(regular_member, book):
+    assert Reservation(regular_member, book, date(2026, 10, 1)).hold_until is None
