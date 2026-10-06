@@ -15,6 +15,9 @@ class MembershipPolicy:
 REGULAR = MembershipPolicy(name="一般", max_loans=3, loan_days=14, late_fee_per_day=10)
 STUDENT = MembershipPolicy(name="学生", max_loans=5, loan_days=21, late_fee_per_day=5)
 
+# 会員種別のレジストリ。保存データは名前で参照し、読み込み時にここから引く
+POLICIES: dict[str, MembershipPolicy] = {p.name: p for p in (REGULAR, STUDENT)}
+
 
 @dataclass(frozen=True)
 class Book:

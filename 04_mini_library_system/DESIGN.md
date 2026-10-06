@@ -8,6 +8,7 @@
 - 延滞料と支払状況は `Loan` が持つ。会員の未払い額は、その会員の `Loan` の未払い分の合計で求める
 - 延滞料は**返却時に確定**する（返却前の延滞中は料金が未確定）
 - **予約**: 貸出中（または予約者に取り置き中）の本に順番待ちを入れられる。待ち行列は FIFO で、先頭の会員だけが借りられる。借りる/キャンセルで待ち行列から外れる。取り置きは返却から7日間で、過ぎると失効して次の人に移る（期限切れの判定は、操作されたときに行う遅延評価）
+- **永続化**: 状態を不変の `LibraryState`（蔵書・会員・貸出・予約）にまとめ、`LibraryRepository` で JSON ファイルに保存する（DB のふり）。操作は「新しい状態を計算（純粋）→ **保存 → 差し替え**」の順で行い、保存に失敗したらメモリの状態も変えない（失敗した操作は何も変えない）
 - **純粋関数の核 + 状態を持つ殻**（functional core, imperative shell）
   - 期限計算・延滞料計算・貸出可否の判定は `rules.py` の純粋関数にする
   - `Book` / `Member` / `Loan` / `MembershipPolicy` はイミュータブル（`frozen=True`）。返却・支払いは新しい `Loan` を返す
@@ -19,13 +20,16 @@
 | --- | --- | --- |
 | 核（純粋） | `rules.py` の関数群 | 引数だけで結果が決まる。副作用なし。日付も引数で受ける |
 | 核（値） | `Book` / `Member` / `Loan` / `MembershipPolicy` | イミュータブルな値オブジェクト |
-| 殻（状態） | `Library` | 蔵書・会員・貸出記録を保持し、核を呼んで結果を反映する |
+| 核（値） | `LibraryState` | 蔵書・会員・貸出・予約をまとめた不変のスナップショット |
+| 核（純粋） | `serialization.py` | `LibraryState` ⇔ dict（JSON 化できる形）の変換。ファイルは触らない |
+| 殻（状態） | `Library` | 現在の `LibraryState` を保持し、核で次の状態を計算して Repository に保存、成功したら差し替える |
+| 外界との境界 | `LibraryRepository`（`InMemoryRepository` / `JsonFileRepository`） | 保存と読み込み。ファイル I/O はここだけ |
 
 ---
 
 ## 1. コンテキスト図
 
-システムの境界と、外との関わりを示します。このシステムの範囲は「ドメインモデル」だけで、UI・DB・決済は含みません。
+システムの境界と、外との関わりを示します。このシステムの範囲は「ドメインモデル」と、JSON ファイルへの保存（DB のふり）までで、UI・本物の DB・決済は含みません。
 
 ```mermaid
 flowchart LR
@@ -38,15 +42,19 @@ flowchart LR
         library --> rules
         library --> domain
         rules --> domain
+        repo["Repository（外界との境界）<br/>InMemory / JsonFile"]
+        library --> repo
     end
 
     clock["🕒 今日の日付<br/>（引数で外から渡す）"]
+    file[("💾 library.json<br/>（DB のふり）")]
     ui["UI / Web"]:::out
-    db["DB / 永続化"]:::out
+    db["本物の DB"]:::out
     pay["決済サービス"]:::out
 
     user -- "borrow / return_book / pay_fee" --> library
     clock -. "today" .-> library
+    repo -- "保存 / 読み込み" --> file
     library -. "例外 or 戻り値で結果を返す" .-> user
     ui ~~~ db ~~~ pay
 
@@ -182,10 +190,8 @@ classDiagram
 
     class Library {
         <<状態を持つ殻>>
-        -dict books
-        -dict members
-        -list loans
-        -list reservations
+        -LibraryState state
+        -LibraryRepository repository
         +add_book(book)
         +add_member(member)
         +borrow(member_id, book_id, today) Loan
@@ -195,6 +201,40 @@ classDiagram
         +cancel_reservation(member_id, book_id, today) Reservation
         +loans tuple
         +reservations tuple
+    }
+
+    class LibraryState {
+        <<frozen dataclass>>
+        +tuple books
+        +tuple members
+        +tuple loans
+        +tuple reservations
+    }
+
+    class LibraryRepository {
+        <<abstract>>
+        +load() LibraryState
+        +save(state) None
+    }
+    class InMemoryRepository {
+        -LibraryState state
+    }
+    class JsonFileRepository {
+        -Path path
+        -atomic_write(text)
+    }
+
+    class serialization {
+        <<module / 純粋関数>>
+        +state_to_dict(state) dict
+        +state_from_dict(data) LibraryState
+    }
+
+    class StorageError {
+        <<exception>>
+    }
+    class CorruptedDataError {
+        <<exception>>
     }
 
     class LibraryError {
@@ -243,10 +283,17 @@ classDiagram
     Member --> MembershipPolicy : has-a
     Loan --> Member : 借りた人
     Loan --> Book : 借りた本
-    Library o-- Book : 蔵書
-    Library o-- Member : 会員
-    Library o-- Loan : 貸出記録
-    Library o-- Reservation : 予約（待ち行列）
+    Library o-- LibraryState : 現在の状態
+    Library --> LibraryRepository : 保存・読み込み
+    LibraryState o-- Book : 蔵書
+    LibraryState o-- Member : 会員
+    LibraryState o-- Loan : 貸出記録
+    LibraryState o-- Reservation : 予約（待ち行列）
+    LibraryRepository <|-- InMemoryRepository
+    LibraryRepository <|-- JsonFileRepository
+    JsonFileRepository ..> serialization : 変換を委譲
+    StorageError <|-- CorruptedDataError
+    LibraryRepository ..> StorageError : 失敗したら送出
     Reservation --> Member : 予約した人
     Reservation --> Book : 予約された本
     Library ..> rules : 判定・計算を委譲
@@ -283,6 +330,7 @@ sequenceDiagram
     actor 会員
     participant Lib as Library（殻）
     participant R as rules（純粋関数）
+    participant Repo as Repository
 
     会員->>Lib: borrow(member_id, book_id, today)
     Lib->>Lib: 会員と本を取得
@@ -314,8 +362,10 @@ sequenceDiagram
         R-->>Lib: None
         Lib->>R: calc_due_date(today, policy)
         R-->>Lib: 期限（14日後 or 21日後）
-        Lib->>Lib: Loan を生成して loans に追加
+        Lib->>Lib: Loan を生成し、新しい LibraryState を計算
         Lib->>Lib: 自分の予約があれば待ち行列から外す（消化）
+        Lib->>Repo: save(新しい LibraryState)
+        Lib->>Lib: 保存できたら状態を差し替える
         Lib-->>会員: Loan
     end
 ```
@@ -389,9 +439,83 @@ sequenceDiagram
     end
 ```
 
+### 4-4. 保存と読み込み（`JsonFileRepository`）
+
+すべての変更操作（`add_*` / `borrow` / `return_book` / `pay_fee` / `reserve` / `cancel_reservation`）が、最後にこの「保存 → 差し替え」を行います。
+
+```mermaid
+sequenceDiagram
+    actor 会員
+    participant Lib as Library（殻）
+    participant Repo as JsonFileRepository
+    participant Ser as serialization（純粋関数）
+    participant FS as ファイル（外界）
+
+    Note over 会員,FS: 起動時（読み込み）
+    会員->>Lib: Library(repository)
+    Lib->>Repo: load()
+    alt ファイルがない
+        Repo-->>Lib: 空の LibraryState
+    else ファイルがある
+        Repo->>FS: 読み込み
+        FS-->>Repo: JSON 文字列
+        Repo->>Ser: state_from_dict(data)
+        alt 壊れている / 版が違う / 参照切れ
+            Ser-->>会員: CorruptedDataError
+        else 正しい
+            Ser-->>Repo: LibraryState
+            Repo-->>Lib: LibraryState
+        end
+    end
+
+    Note over 会員,FS: 操作時（保存してから反映）
+    会員->>Lib: borrow(...)
+    Lib->>Lib: 新しい LibraryState を計算（純粋）
+    Lib->>Repo: save(新しい LibraryState)
+    Repo->>Ser: state_to_dict(state)
+    Ser-->>Repo: dict
+    Repo->>FS: 一時ファイルに書く → os.replace で差し替え
+    alt 書き込みに失敗
+        Repo-->>Lib: StorageError（元のファイルは無傷）
+        Lib-->>会員: StorageError（メモリ上の状態も変わらない）
+    else 成功
+        Lib->>Lib: 状態を新しいものに差し替え
+        Lib-->>会員: 結果
+    end
+```
+
 ---
 
-## 5. 設計の決めごと（ADR 風メモ）
+## 5. データファイルの形式
+
+`JsonFileRepository` が書く JSON です（全体スナップショット）。`Loan` / `Reservation` は `Member` / `Book` を **ID で参照**し、`MembershipPolicy` は**名前**で参照します。日付は ISO 8601（`YYYY-MM-DD`）、未設定は `null` です。
+
+```json
+{
+  "version": 1,
+  "books": [{ "book_id": "b1", "title": "本1" }],
+  "members": [{ "member_id": "m1", "name": "一般太郎", "policy": "一般" }],
+  "loans": [
+    {
+      "member_id": "m1", "book_id": "b1",
+      "borrowed_on": "2026-10-01", "due_on": "2026-10-15",
+      "returned_on": null, "late_fee": 0, "fee_paid": false
+    }
+  ],
+  "reservations": [
+    {
+      "member_id": "m2", "book_id": "b1",
+      "reserved_on": "2026-10-01", "hold_until": null
+    }
+  ]
+}
+```
+
+読み込み時に `CorruptedDataError` になるもの: JSON として壊れている / `version` が未対応 / 必須項目の欠落や型の不一致 / 存在しない会員・本・会員種別への参照。
+
+---
+
+## 6. 設計の決めごと（ADR 風メモ）
 
 | 決めたこと | 理由 | 別案 |
 | --- | --- | --- |
@@ -410,3 +534,12 @@ sequenceDiagram
 | 失効した予約者は優先権を失うだけ | 期限後は本が空いていれば誰でも借りられる。通知は発展課題（02 と連携） | 失効した予約者は借りられない |
 | `check_can_borrow` に `reserved_by_other=False` を追加 | 判定順（未払い → 予約 → 貸出中 → 上限）を保ち、既存の呼び出しを壊さない | 別の判定関数にする（順序が崩れる） |
 | 予約は履歴を持たず待ち行列から外す | 状態を持たない方針と整合。履歴が必要なら永続化と合わせて再検討 | `status` 付きで残す |
+| 状態を不変の `LibraryState` にまとめ、操作は「新しい状態を計算 → 保存 → 差し替え」 | 保存に失敗したときメモリだけ進む不整合を防ぐ。失敗した操作は何も変えない（all-or-nothing） | メモリを更新してから保存（失敗時に巻き戻しが必要） |
+| 期限切れの除去は、成功した操作でのみ状態に反映する | all-or-nothing を保つ。取り置き期限の起点は返却・キャンセルの成功時に保存されるので、失敗した操作で反映されなくても、次の操作で同じ結果になる | 失敗時も整理分を保存する |
+| 保存形式は全体スナップショットの JSON 1ファイル | 「DB のふり」として十分で、実装が単純 | JSON Lines（追記型）/ `sqlite3` |
+| 変換は純粋関数（`serialization.py`）、ファイル I/O は Repository | 変換はファイルなしでテストできる。外界に触れる部分を最小にする | Repository 内に直書き |
+| `MembershipPolicy` は名前で保存し `POLICIES` から引く | ルール変更とデータのずれを防ぐ。会員種別の追加はレジストリに1行 | 数値を丸ごと保存 |
+| `Loan` / `Reservation` は ID で保存し、読み込み時に引き直す | `Member` / `Book` との二重保存・不整合を避ける | オブジェクトを丸ごと埋め込む |
+| 保存は一時ファイル + `os.replace` | 書き込み途中のクラッシュでも元のファイルが壊れない | 直接上書き |
+| 永続化の失敗は `StorageError`（`LibraryError` とは別系統） | 業務ルール違反とインフラ障害は、呼び出し側の対処が違う | `LibraryError` の子にする |
+| ファイルに `version` を持たせる | 将来の形式変更を検出できる | なし |

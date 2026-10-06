@@ -133,3 +133,28 @@ def settle_queue(
         start = head.hold_until
         settled.pop(0)
     return settled
+
+
+def settle_reservations(
+    reservations: Iterable[Reservation],
+    loans: Iterable[Loan],
+    book_id: str,
+    today: date,
+) -> tuple[Reservation, ...]:
+    """予約全体のうち、指定した本の待ち行列だけを今日の時点に整えて返す"""
+    reservations = list(reservations)
+    queue = _queue(reservations, book_id)
+    others = [r for r in reservations if r.book.book_id != book_id]
+    settled = settle_queue(queue, is_book_available(loans, book_id), today)
+    return tuple(others + settled)
+
+
+def remove_reservation(
+    reservations: Iterable[Reservation], member_id: str, book_id: str
+) -> tuple[tuple[Reservation, ...], Reservation | None]:
+    """会員のその本への予約を外す。(外した後の予約, 外した予約 or None) を返す"""
+    remaining = list(reservations)
+    for i, reservation in enumerate(remaining):
+        if reservation.member.member_id == member_id and reservation.book.book_id == book_id:
+            return tuple(remaining[:i] + remaining[i + 1 :]), reservation
+    return tuple(remaining), None

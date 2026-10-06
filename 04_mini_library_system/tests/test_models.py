@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 from datetime import date
 
 import pytest
-from models import REGULAR, STUDENT, Reservation
+from models import POLICIES, REGULAR, STUDENT, Reservation
 
 
 def test_会員種別の定数がルール通り():
@@ -59,3 +59,7 @@ def test_Reservationは変更できない(regular_member, book):
 
 def test_Reservationのhold_untilは最初は未設定(regular_member, book):
     assert Reservation(regular_member, book, date(2026, 10, 1)).hold_until is None
+
+
+def test_会員種別は名前で引ける():
+    assert POLICIES == {"一般": REGULAR, "学生": STUDENT}

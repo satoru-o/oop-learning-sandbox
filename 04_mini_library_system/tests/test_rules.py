@@ -20,7 +20,9 @@ from rules import (
     count_active_loans,
     is_book_available,
     is_reserved_by_other,
+    remove_reservation,
     settle_queue,
+    settle_reservations,
     total_unpaid_fee,
 )
 
@@ -234,3 +236,44 @@ class TestSettleQueue:
         queue = [_held("m1", None)]
         settle_queue(queue, available=True, today=_day(0))
         assert queue[0].hold_until is None
+
+
+class TestSettleReservations:
+    def test_対象の本の待ち行列だけを整える(self):
+        reservations = (_held("m1", None), _reservation("m2", "b2"))
+        settled = settle_reservations(reservations, loans=[], book_id="b1", today=_day(0))
+
+        by_book = {r.book.book_id: r.hold_until for r in settled}
+        assert by_book == {"b1": _day(7), "b2": None}  # b2 は触らない
+
+    def test_貸出中の本は取り置きが始まらない(self, active_loan):
+        reservations = (_held("m2", None),)
+        settled = settle_reservations(reservations, [active_loan], "b1", _day(0))
+        assert settled == reservations
+
+    def test_期限切れは取り除かれる(self):
+        reservations = (_held("m1", _day(7)),)
+        assert settle_reservations(reservations, [], "b1", _day(8)) == ()
+
+    def test_結果はtuple(self):
+        assert isinstance(settle_reservations([], [], "b1", _day(0)), tuple)
+
+
+class TestRemoveReservation:
+    def test_該当の予約を外して返す(self):
+        a, b = _reservation("m1"), _reservation("m2")
+        remaining, removed = remove_reservation((a, b), "m1", "b1")
+        assert remaining == (b,)
+        assert removed == a
+
+    def test_該当がなければそのままNone(self):
+        reservations = (_reservation("m1"),)
+        remaining, removed = remove_reservation(reservations, "m2", "b1")
+        assert remaining == reservations
+        assert removed is None
+
+    def test_別の本の予約は外さない(self):
+        reservations = (_reservation("m1", "b2"),)
+        remaining, removed = remove_reservation(reservations, "m1", "b1")
+        assert remaining == reservations
+        assert removed is None

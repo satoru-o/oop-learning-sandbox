@@ -1,5 +1,7 @@
 # 04_mini_library_system/library.py
-# 状態を持つ「殻」。判定・計算は rules.py の純粋関数に任せ、結果を反映するだけ。
+# 状態を持つ「殻」。判定・計算は rules.py の純粋関数に任せ、
+# 「新しい LibraryState を計算 → Repository に保存 → 差し替え」の順で状態を更新する。
+from dataclasses import replace
 from datetime import date
 
 from errors import (
@@ -11,6 +13,7 @@ from errors import (
     ReservationNotFoundError,
 )
 from models import Book, Loan, Member, Reservation
+from repository import InMemoryRepository, LibraryRepository
 from rules import (
     calc_due_date,
     calc_late_fee,
@@ -19,132 +22,148 @@ from rules import (
     count_active_loans,
     is_book_available,
     is_reserved_by_other,
-    settle_queue,
+    remove_reservation,
+    settle_reservations,
     total_unpaid_fee,
 )
+from state import LibraryState
 
 
 class Library:
-    def __init__(self):
-        self._books: dict[str, Book] = {}
-        self._members: dict[str, Member] = {}
-        self._loans: list[Loan] = []
-        self._reservations: list[Reservation] = []
+    def __init__(self, repository: LibraryRepository | None = None):
+        self._repository = repository if repository is not None else InMemoryRepository()
+        self._state = self._repository.load()
+
+    @property
+    def state(self) -> LibraryState:
+        """現在の状態（イミュータブルなスナップショット）"""
+        return self._state
 
     @property
     def loans(self) -> tuple[Loan, ...]:
         """貸出記録（読み取り専用）"""
-        return tuple(self._loans)
+        return self._state.loans
 
     @property
     def reservations(self) -> tuple[Reservation, ...]:
         """予約の待ち行列（読み取り専用。先頭ほど早い予約）"""
-        return tuple(self._reservations)
+        return self._state.reservations
 
     def add_book(self, book: Book) -> None:
-        if book.book_id in self._books:
+        if any(b.book_id == book.book_id for b in self._state.books):
             raise DuplicateBookError(book.book_id)
-        self._books[book.book_id] = book
+        self._commit(replace(self._state, books=self._state.books + (book,)))
 
     def add_member(self, member: Member) -> None:
-        if member.member_id in self._members:
+        if any(m.member_id == member.member_id for m in self._state.members):
             raise DuplicateMemberError(member.member_id)
-        self._members[member.member_id] = member
+        self._commit(replace(self._state, members=self._state.members + (member,)))
 
     def borrow(self, member_id: str, book_id: str, today: date) -> Loan:
+        state = self._state
         member = self._get_member(member_id)
         book = self._get_book(book_id)
-        self._settle_queue(book_id, today)  # 期限切れの取り置きを先に整理する
+        # 期限切れの取り置きを先に整理する（この結果は、操作が成功したときだけ反映される）
+        reservations = settle_reservations(state.reservations, state.loans, book_id, today)
 
         check_can_borrow(
             member.policy,
-            active_count=count_active_loans(self._loans, member_id),
-            unpaid_fee=total_unpaid_fee(self._loans, member_id),
-            available=is_book_available(self._loans, book_id),
-            reserved_by_other=is_reserved_by_other(self._reservations, book_id, member_id),
+            active_count=count_active_loans(state.loans, member_id),
+            unpaid_fee=total_unpaid_fee(state.loans, member_id),
+            available=is_book_available(state.loans, book_id),
+            reserved_by_other=is_reserved_by_other(reservations, book_id, member_id),
         )
 
         loan = Loan(member, book, borrowed_on=today, due_on=calc_due_date(today, member.policy))
-        self._loans.append(loan)
-        self._remove_reservation(member_id, book_id)  # 自分の予約があれば消化
+        reservations, _ = remove_reservation(reservations, member_id, book_id)  # 予約を消化
+        self._commit(replace(state, loans=state.loans + (loan,), reservations=reservations))
         return loan
 
     def return_book(self, book_id: str, today: date) -> Loan:
+        state = self._state
         self._get_book(book_id)
         index, loan = self._find_active_loan(book_id)
 
         late_fee = calc_late_fee(loan.due_on, today, loan.member.policy)
         closed = loan.closed(today, late_fee)
-        self._loans[index] = closed
-        self._settle_queue(book_id, today)  # 返却日から取り置き期限が始まる
+        loans = state.loans[:index] + (closed,) + state.loans[index + 1 :]
+        # 返却日から取り置き期限が始まる
+        reservations = settle_reservations(state.reservations, loans, book_id, today)
+        self._commit(replace(state, loans=loans, reservations=reservations))
         return closed
 
     def pay_fee(self, member_id: str) -> int:
         """未払いの延滞料をすべて支払い、支払った合計額を返す"""
+        state = self._state
         self._get_member(member_id)
-        paid_total = total_unpaid_fee(self._loans, member_id)
+        paid_total = total_unpaid_fee(state.loans, member_id)
+        if paid_total == 0:
+            return 0
 
-        for i, loan in enumerate(self._loans):
-            if loan.member.member_id == member_id and loan.has_unpaid_fee():
-                self._loans[i] = loan.paid()
+        loans = tuple(
+            loan.paid() if loan.member.member_id == member_id and loan.has_unpaid_fee() else loan
+            for loan in state.loans
+        )
+        self._commit(replace(state, loans=loans))
         return paid_total
 
     def reserve(self, member_id: str, book_id: str, today: date) -> Reservation:
+        state = self._state
         member = self._get_member(member_id)
         book = self._get_book(book_id)
-        self._settle_queue(book_id, today)
+        reservations = settle_reservations(state.reservations, state.loans, book_id, today)
 
-        check_can_reserve(self._loans, self._reservations, book_id, member_id)
+        check_can_reserve(state.loans, reservations, book_id, member_id)
 
         reservation = Reservation(member, book, reserved_on=today)
-        self._reservations.append(reservation)
+        self._commit(replace(state, reservations=reservations + (reservation,)))
         return reservation
 
     def cancel_reservation(self, member_id: str, book_id: str, today: date) -> Reservation:
+        state = self._state
         self._get_member(member_id)
         self._get_book(book_id)
 
-        cancelled = self._remove_reservation(member_id, book_id)
+        remaining, cancelled = remove_reservation(state.reservations, member_id, book_id)
         if cancelled is None:
             raise ReservationNotFoundError(member_id, book_id)
-        self._settle_queue(book_id, today)  # 先頭が抜けたら次の人の取り置きが始まる
+        # 先頭が抜けたら次の人の取り置きが始まる
+        reservations = settle_reservations(remaining, state.loans, book_id, today)
+        self._commit(replace(state, reservations=reservations))
         return cancelled
 
-    def _settle_queue(self, book_id: str, today: date) -> None:
-        """その本の待ち行列を今日の時点に整える（期限切れの除去・取り置き期限の付与）"""
-        queue = [r for r in self._reservations if r.book.book_id == book_id]
-        others = [r for r in self._reservations if r.book.book_id != book_id]
-        settled = settle_queue(queue, is_book_available(self._loans, book_id), today)
-        self._reservations = others + settled
-
-    def _remove_reservation(self, member_id: str, book_id: str) -> Reservation | None:
-        for i, reservation in enumerate(self._reservations):
-            if reservation.member.member_id == member_id and reservation.book.book_id == book_id:
-                return self._reservations.pop(i)
-        return None
+    def _commit(self, new_state: LibraryState) -> None:
+        """保存に成功してから状態を差し替える（保存に失敗したらメモリも変えない）"""
+        self._repository.save(new_state)
+        self._state = new_state
 
     def _get_member(self, member_id: str) -> Member:
-        if member_id not in self._members:
-            raise MemberNotFoundError(member_id)
-        return self._members[member_id]
+        for member in self._state.members:
+            if member.member_id == member_id:
+                return member
+        raise MemberNotFoundError(member_id)
 
     def _get_book(self, book_id: str) -> Book:
-        if book_id not in self._books:
-            raise BookNotFoundError(book_id)
-        return self._books[book_id]
+        for book in self._state.books:
+            if book.book_id == book_id:
+                return book
+        raise BookNotFoundError(book_id)
 
     def _find_active_loan(self, book_id: str) -> tuple[int, Loan]:
-        for i, loan in enumerate(self._loans):
+        for i, loan in enumerate(self._state.loans):
             if loan.book.book_id == book_id and loan.is_active():
                 return i, loan
         raise BookNotOnLoanError(book_id)
 
 
 def demo() -> None:
+    import tempfile
     from datetime import timedelta
+    from pathlib import Path
 
-    from errors import LibraryError
+    from errors import LibraryError, StorageError
     from models import REGULAR, STUDENT
+    from repository import JsonFileRepository
 
     today = date(2026, 10, 1)
     library = Library()
@@ -156,7 +175,7 @@ def demo() -> None:
     def attempt(label: str, action) -> None:
         try:
             result = action()
-        except LibraryError as e:
+        except (LibraryError, StorageError) as e:
             print(f"  ✗ {label}: {e}")
         else:
             print(f"  ✓ {label}: {result}")
@@ -182,9 +201,9 @@ def demo() -> None:
     attempt("太郎が延滞料を支払う", lambda: library.pay_fee("m1"))
     attempt("太郎が b4 を借りる", lambda: library.borrow("m1", "b4", late).due_on)
 
-    def new_library() -> Library:
-        """本1冊と会員3人（太郎・花子・三郎）だけの、予約シナリオ用の図書館"""
-        lib = Library()
+    def new_library(repository=None) -> Library:
+        """本1冊と会員3人（太郎・花子・三郎）だけの、予約・保存シナリオ用の図書館"""
+        lib = Library(repository)
         lib.add_book(Book("b1", "本1"))
         lib.add_member(Member("m1", "一般太郎", REGULAR))
         lib.add_member(Member("m2", "学生花子", STUDENT))
@@ -216,6 +235,27 @@ def demo() -> None:
         "三郎が借りる（返却の8日後=失効後）",
         lambda: lib.borrow("m3", "b1", after(returned, 8)).due_on,
     )
+
+    print("【7】JSONファイルに保存し、再起動したつもりで続きから使う")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "library.json"
+        first = new_library(JsonFileRepository(path))
+        first.borrow("m1", "b1", today)
+        first.reserve("m2", "b1", today)
+        print(f"  ✓ 保存した: {path.name}（{path.stat().st_size} バイト）")
+
+        second = Library(JsonFileRepository(path))  # 再起動
+        attempt(
+            "読み込んだ（貸出, 予約）の数", lambda: (len(second.loans), len(second.reservations))
+        )
+        attempt("太郎が b1 を返却", lambda: second.return_book("b1", after(today, 3)).late_fee)
+        attempt(
+            "花子が b1 を借りる（予約も引き継がれている）",
+            lambda: second.borrow("m2", "b1", after(today, 3)).due_on,
+        )
+
+        path.write_text("{ broken", encoding="utf-8")
+        attempt("壊れたファイルで起動", lambda: Library(JsonFileRepository(path)))
 
 
 if __name__ == "__main__":

@@ -108,3 +108,12 @@ class ReservationNotFoundError(LibraryError):
         super().__init__(f"予約がありません (会員: {member_id} / 本: {book_id})")
         self.member_id = member_id
         self.book_id = book_id
+
+
+# 永続化（外界）の例外。業務ルール違反（LibraryError）とは別系統にする
+class StorageError(Exception):
+    """保存・読み込みに失敗した"""
+
+
+class CorruptedDataError(StorageError):
+    """保存データが壊れている（JSON として不正・版違い・項目の欠落や型の不一致・参照切れ）"""
