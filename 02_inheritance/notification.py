@@ -1,6 +1,6 @@
 # 02_inheritance/notification.py
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 # 抽象基底クラス (Abstract Base Class)
@@ -18,8 +18,8 @@ class BaseNotification(ABC):
         return self._sender_id
 
     def _format_message(self, body: str) -> str:
-        """共通のメッセージ整形ロジック (具象メソッド) """
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        """共通のメッセージ整形ロジック (具象メソッド)"""
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         return f"[{now}] {body}"
 
     @abstractmethod
@@ -72,8 +72,7 @@ class SmsNotification(BaseNotification):
     def send(self, recipient: str, body: str) -> bool:
         formatted_body = self._format_message(body)
         if len(formatted_body) > self._max_chars:
-            print(
-                f"[SMS エラー] 文字数オーバーです ({len(formatted_body)}/{self._max_chars}文字)")
+            print(f"[SMS エラー] 文字数オーバーです ({len(formatted_body)}/{self._max_chars}文字)")
             return False
 
         print("[SMS 送信]")
@@ -118,16 +117,14 @@ if __name__ == "__main__":
 
     print("\n--- 2. 各チャネルのセットアップ ---")
     service = NotificationService()
-    service.add_channel(EmailNotification(
-        sender_id="sys_admin", smtp_server="smtp.example.com"))
-    service.add_channel(SlackNotification(
-        sender_id="bot_alert", webhook_url="https://hooks.slack.com/..."))
-    service.add_channel(SmsNotification(
-        sender_id="sms_gateway", max_chars=100))
+    service.add_channel(EmailNotification(sender_id="sys_admin", smtp_server="smtp.example.com"))
+    service.add_channel(
+        SlackNotification(sender_id="bot_alert", webhook_url="https://hooks.slack.com/...")
+    )
+    service.add_channel(SmsNotification(sender_id="sms_gateway", max_chars=100))
 
     print("\n--- 3. 一括送信（ポリモーフィズムの実行） ---")
     total_sent = service.notify_all(
-        recipient="user@example.com",
-        message="システムエラーが発生しました。確認してください。"
+        recipient="user@example.com", message="システムエラーが発生しました。確認してください。"
     )
     print(f"\n送信完了: {total_sent} 件成功")

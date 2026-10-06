@@ -1,6 +1,6 @@
 # 01_basics/account.py
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 
 
@@ -35,6 +35,7 @@ class TransactionType(Enum):
 @dataclass(frozen=True)
 class Transaction:
     """1件の取引データ。frozen=True により生成後の改竄を防止"""
+
     id: int
     type: TransactionType
     amount: float
@@ -51,10 +52,7 @@ class TransactionHistory:
 
     def add(self, transaction_type: TransactionType, amount: float) -> Transaction:
         tx = Transaction(
-            id=self._next_id,
-            type=transaction_type,
-            amount=amount,
-            timestamp=datetime.now(timezone.utc)
+            id=self._next_id, type=transaction_type, amount=amount, timestamp=datetime.now(UTC)
         )
         self._transactions.append(tx)
         self._next_id += 1
@@ -143,8 +141,7 @@ if __name__ == "__main__":
     print("\n--- 3. 取引履歴の確認 ---")
     for tx in account.history.all:
         time_str = tx.timestamp.strftime("%H:%M:%S")
-        print(
-            f" ID:{tx.id} | 時間:{time_str} | 種別:{tx.type.value} | 金額:{tx.amount}円")
+        print(f" ID:{tx.id} | 時間:{time_str} | 種別:{tx.type.value} | 金額:{tx.amount}円")
 
     print("\n--- 4. 防御的コピーの確認 ---")
     # 外から history.all に要素を追加しようとしても、tuple なのでエラーになる
