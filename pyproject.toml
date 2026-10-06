@@ -1,0 +1,29 @@
+[project]
+name = "oop-learning-sandbox"
+version = "0.1.0"
+description = "OOP を Python / TypeScript で学ぶサンドボックス"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.16.10",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["04_mini_library_system/tests"]
+# 章のディレクトリ名は数字始まりでパッケージにできないため、import パスとして直接追加する
+pythonpath = ["04_mini_library_system"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["node_modules"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import順, UP: 新しい書き方, B: バグの温床
+select = ["E", "W", "F", "I", "UP", "B"]
