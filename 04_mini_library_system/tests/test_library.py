@@ -5,12 +5,14 @@ from errors import (
     BookNotFoundError,
     BookNotOnLoanError,
     BookUnavailableError,
+    DuplicateBookError,
+    DuplicateMemberError,
     LoanLimitExceededError,
     MemberNotFoundError,
     UnpaidFeeError,
 )
 from library import Library
-from models import Book
+from models import REGULAR, STUDENT, Book, Member
 
 TODAY = date(2026, 10, 1)
 
@@ -23,6 +25,38 @@ def library(regular_member, student_member) -> Library:
     lib.add_member(regular_member)  # m1: 一般
     lib.add_member(student_member)  # m2: 学生
     return lib
+
+
+class TestRegister:
+    def test_同じIDの本は登録できない(self, library):
+        with pytest.raises(DuplicateBookError) as exc:
+            library.add_book(Book("b1", "別のタイトル"))
+        assert exc.value.book_id == "b1"
+
+    def test_中身が完全に同じ本でも二重登録はできない(self, library):
+        with pytest.raises(DuplicateBookError):
+            library.add_book(Book("b1", "本1"))
+
+    def test_同じIDの会員は登録できない(self, library):
+        with pytest.raises(DuplicateMemberError) as exc:
+            library.add_member(Member("m1", "別人", STUDENT))
+        assert exc.value.member_id == "m1"
+
+    def test_重複で拒否されても元の登録は変わらない(self, library):
+        with pytest.raises(DuplicateBookError):
+            library.add_book(Book("b1", "別のタイトル"))
+        with pytest.raises(DuplicateMemberError):
+            library.add_member(Member("m1", "別人", STUDENT))
+
+        loan = library.borrow("m1", "b1", TODAY)
+        assert loan.book.title == "本1"
+        assert loan.member.name == "一般太郎"
+        assert loan.member.policy == REGULAR
+
+    def test_別IDなら登録できる(self, library):
+        library.add_book(Book("b100", "新しい本"))
+        library.add_member(Member("m100", "新会員", REGULAR))
+        library.borrow("m100", "b100", TODAY)
 
 
 class TestBorrow:

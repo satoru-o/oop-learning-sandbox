@@ -51,3 +51,19 @@ class BookNotOnLoanError(LibraryError):
     def __init__(self, book_id: str):
         super().__init__(f"この本は貸出中ではありません (ID: {book_id})")
         self.book_id = book_id
+
+
+class DuplicateBookError(LibraryError):
+    """すでに登録されている本のID"""
+
+    def __init__(self, book_id: str):
+        super().__init__(f"すでに登録されている本です (ID: {book_id})")
+        self.book_id = book_id
+
+
+class DuplicateMemberError(LibraryError):
+    """すでに登録されている会員のID"""
+
+    def __init__(self, member_id: str):
+        super().__init__(f"すでに登録されている会員です (ID: {member_id})")
+        self.member_id = member_id

@@ -2,7 +2,13 @@
 # 状態を持つ「殻」。判定・計算は rules.py の純粋関数に任せ、結果を反映するだけ。
 from datetime import date
 
-from errors import BookNotFoundError, BookNotOnLoanError, MemberNotFoundError
+from errors import (
+    BookNotFoundError,
+    BookNotOnLoanError,
+    DuplicateBookError,
+    DuplicateMemberError,
+    MemberNotFoundError,
+)
 from models import Book, Loan, Member
 from rules import (
     calc_due_date,
@@ -26,9 +32,13 @@ class Library:
         return tuple(self._loans)
 
     def add_book(self, book: Book) -> None:
+        if book.book_id in self._books:
+            raise DuplicateBookError(book.book_id)
         self._books[book.book_id] = book
 
     def add_member(self, member: Member) -> None:
+        if member.member_id in self._members:
+            raise DuplicateMemberError(member.member_id)
         self._members[member.member_id] = member
 
     def borrow(self, member_id: str, book_id: str, today: date) -> Loan:

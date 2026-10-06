@@ -178,6 +178,12 @@ classDiagram
     class BookNotOnLoanError {
         <<exception>>
     }
+    class DuplicateBookError {
+        <<exception>>
+    }
+    class DuplicateMemberError {
+        <<exception>>
+    }
 
     Member --> MembershipPolicy : has-a
     Loan --> Member : 借りた人
@@ -193,6 +199,8 @@ classDiagram
     LibraryError <|-- BookNotFoundError
     LibraryError <|-- MemberNotFoundError
     LibraryError <|-- BookNotOnLoanError
+    LibraryError <|-- DuplicateBookError
+    LibraryError <|-- DuplicateMemberError
     rules ..> LibraryError : 不可なら送出
 ```
 
