@@ -80,3 +80,50 @@ class Library:
             if loan.book.book_id == book_id and loan.is_active():
                 return i, loan
         raise BookNotOnLoanError(book_id)
+
+
+def demo() -> None:
+    from datetime import timedelta
+
+    from errors import LibraryError
+    from models import REGULAR, STUDENT
+
+    today = date(2026, 10, 1)
+    library = Library()
+    for i in range(1, 6):
+        library.add_book(Book(f"b{i}", f"本{i}"))
+    library.add_member(Member("m1", "一般太郎", REGULAR))
+    library.add_member(Member("m2", "学生花子", STUDENT))
+
+    def attempt(label: str, action) -> None:
+        try:
+            result = action()
+        except LibraryError as e:
+            print(f"  ✗ {label}: {e}")
+        else:
+            print(f"  ✓ {label}: {result}")
+
+    print("【1】一般会員が4冊目を借りようとして、上限エラーになる")
+    for book_id in ("b1", "b2", "b3", "b4"):
+        attempt(
+            f"太郎が {book_id} を借りる", lambda b=book_id: library.borrow("m1", b, today).due_on
+        )
+
+    print("【2】貸出中の本を別の会員が借りようとして、エラーになる")
+    attempt("花子が b1 を借りる", lambda: library.borrow("m2", "b1", today))
+
+    print("【3】期限を5日過ぎて返却し、延滞料が発生する（一般50円 / 学生25円）")
+    library.borrow("m2", "b5", today)
+    late = today + timedelta(days=14 + 5)
+    attempt("太郎が b1 を返却", lambda: library.return_book("b1", late).late_fee)
+    late_student = today + timedelta(days=21 + 5)
+    attempt("花子が b5 を返却", lambda: library.return_book("b5", late_student).late_fee)
+
+    print("【4】延滞料を支払うまで、その会員は借りられない")
+    attempt("太郎が b4 を借りる", lambda: library.borrow("m1", "b4", late))
+    attempt("太郎が延滞料を支払う", lambda: library.pay_fee("m1"))
+    attempt("太郎が b4 を借りる", lambda: library.borrow("m1", "b4", late).due_on)
+
+
+if __name__ == "__main__":
+    demo()

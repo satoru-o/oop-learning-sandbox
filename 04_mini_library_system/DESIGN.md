@@ -154,6 +154,7 @@ classDiagram
         +borrow(member_id, book_id, today) Loan
         +return_book(book_id, today) Loan
         +pay_fee(member_id) int
+        +loans tuple
     }
 
     class LibraryError {
@@ -168,6 +169,15 @@ classDiagram
     class UnpaidFeeError {
         <<exception>>
     }
+    class BookNotFoundError {
+        <<exception>>
+    }
+    class MemberNotFoundError {
+        <<exception>>
+    }
+    class BookNotOnLoanError {
+        <<exception>>
+    }
 
     Member --> MembershipPolicy : has-a
     Loan --> Member : 借りた人
@@ -180,6 +190,9 @@ classDiagram
     LibraryError <|-- BookUnavailableError
     LibraryError <|-- LoanLimitExceededError
     LibraryError <|-- UnpaidFeeError
+    LibraryError <|-- BookNotFoundError
+    LibraryError <|-- MemberNotFoundError
+    LibraryError <|-- BookNotOnLoanError
     rules ..> LibraryError : 不可なら送出
 ```
 
