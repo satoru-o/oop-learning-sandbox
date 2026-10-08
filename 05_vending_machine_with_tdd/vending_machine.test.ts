@@ -12,4 +12,9 @@ describe("VendingMachine", () => {
     machine.insertMoney(100);
     expect(machine.balance).toBe(100);
   })
+
+  it("存在しない金額(7円)は投入できないこと", () => {
+    const machine = new VendingMachine();
+    expect(() => machine.insertMoney(7)).toThrow();
+  });
 })
