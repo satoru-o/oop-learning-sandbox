@@ -44,6 +44,6 @@
     }
   },
 
-  // uv を入れて dev 依存（pytest）を同期し、TS 実行環境を入れる
-  "postCreateCommand": "pip install uv && uv sync && npm install -g ts-node typescript"
+  // uv を入れて dev 依存（pytest）を同期し、TS 実行環境と dev 依存（vitest）を入れる
+  "postCreateCommand": "pip install uv && uv sync && npm install -g ts-node typescript && npm install"
 }
