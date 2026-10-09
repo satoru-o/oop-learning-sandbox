@@ -37,3 +37,8 @@ it("払い戻しすると残高が0になり、返す金額を得ること", () 
   expect(refunded).toBe(500);
   expect(payment.balance).toBe(0);
 });
+it("現金払いの釣り銭として返す額は、残高から価格を引いた額であること", () => {
+  const payment = new CashPayment();
+  payment.insert(500);
+  expect(payment.changeFor(120)).toBe(380);
+});

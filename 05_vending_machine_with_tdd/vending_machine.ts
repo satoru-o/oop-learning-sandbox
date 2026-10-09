@@ -1,13 +1,13 @@
 import { CoinBox } from "./coinbox";
 import { CashPayment } from "./cash_payment";
+import type { PaymentMethod } from "./payment_method";
 import { Slot } from "./slot";
 
 export class VendingMachine {
-  private payment = new CashPayment();
-
   constructor(
     private slots: Slot[] = [],
     private coinBox: CoinBox = new CoinBox({}),
+    private payment: PaymentMethod = new CashPayment(),
   ) {}
 
   get balance() {
@@ -32,7 +32,7 @@ export class VendingMachine {
       throw new Error(`[Error] 残高不足です`);
     }
 
-    const change = this.coinBox.payOut(this.payment.balance - price);
+    const change = this.coinBox.payOut(this.payment.changeFor(price));
 
     this.payment.pay(price);
     this.payment.refund();

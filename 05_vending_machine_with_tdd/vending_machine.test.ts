@@ -3,6 +3,7 @@ import { VendingMachine } from "./vending_machine";
 import { Slot } from "./slot";
 import { Product } from "./product";
 import { CoinBox } from "./coinbox";
+import { ICCardPayment } from "./ic_card_payment";
 
 describe("VendingMachine", () => {
   it("初期状態では残高が0円であること", () => {
@@ -80,5 +81,25 @@ describe("VendingMachine.buy", () => {
     machine.insertMoney(500);
     expect(machine.refund()).toBe(500);
     expect(machine.balance).toBe(0);
+  });
+});
+
+describe("VendingMachine（ICカード払い）", () => {
+  it("釣り銭箱が空でも購入でき、カードの残高から引き落とされること", () => {
+    const slot = new Slot(new Product("お茶", 120), 5);
+    const card = new ICCardPayment(1000);
+    const machine = new VendingMachine([slot], new CoinBox({}), card);
+    expect(machine.buy("お茶")).toEqual({});
+    expect(card.balance).toBe(880);
+    expect(slot.stock).toBe(4);
+  });
+
+  it("カードの残高が足りないと購入できず、在庫もカードも変わらないこと", () => {
+    const slot = new Slot(new Product("お茶", 120), 5);
+    const card = new ICCardPayment(100);
+    const machine = new VendingMachine([slot], new CoinBox({}), card);
+    expect(() => machine.buy("お茶")).toThrow("残高不足");
+    expect(slot.stock).toBe(5);
+    expect(card.balance).toBe(100);
   });
 });

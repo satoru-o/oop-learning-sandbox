@@ -1,7 +1,8 @@
+import type { PaymentMethod } from "./payment_method";
+
 const VALID_CASH_VALUES = [10, 50, 100, 500, 1000] as const;
 
-
-export class CashPayment {
+export class CashPayment implements PaymentMethod {
   private _balance: number = 0;
 
   get balance(): number {
@@ -19,6 +20,10 @@ export class CashPayment {
 
   canPay(price: number): boolean {
     return this._balance >= price;
+  }
+
+  changeFor(price: number): number {
+    return this._balance - price;
   }
 
   pay(price: number): number {
