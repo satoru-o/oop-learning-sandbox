@@ -14,6 +14,12 @@ export class Slot {
   }
 
   dispense(): void {
+    const currentStock = this._stock;
+
+    if (currentStock <= 0) {
+      throw new Error(`[Error] 在庫切れです`)
+    }
+
     this._stock -= 1;
   }
 }
