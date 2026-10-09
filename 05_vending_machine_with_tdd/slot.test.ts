@@ -12,4 +12,9 @@ it("1本取り出すと在庫が1減ること", () => {
   const slot = new Slot(new Product("お茶", 120), 5);
   slot.dispense();
   expect(slot.stock).toBe(4);
-})
+});
+
+it("在庫が0のとき取り出すと例外になること", () => {
+  const slot = new Slot(new Product("お茶", 120), 0);
+  expect(() => slot.dispense()).toThrow();
+});
