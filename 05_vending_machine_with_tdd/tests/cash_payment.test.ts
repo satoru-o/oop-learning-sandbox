@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { CashPayment } from "./cash_payment";
+import { CashPayment } from "../src/cash_payment";
 
 it("初期状態では残高が0円であること", () => {
   const payment = new CashPayment();

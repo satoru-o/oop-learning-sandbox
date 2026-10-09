@@ -1,6 +1,6 @@
 import { it, expect } from "vitest";
-import { Product } from "./product";
-import { Slot } from "./slot";
+import { Product } from "../src/product";
+import { Slot } from "../src/slot";
 
 it("列は商品と在庫を持つこと", () => {
   const slot = new Slot(new Product("お茶", 120), 5);

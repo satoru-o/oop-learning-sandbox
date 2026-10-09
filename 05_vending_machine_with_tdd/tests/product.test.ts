@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { Product } from "./product";
+import { Product } from "../src/product";
 
 it("商品は名前と価格を持つこと", () => {
   const tea = new Product("お茶", 120);

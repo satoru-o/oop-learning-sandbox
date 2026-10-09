@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { SalesLedger } from "./sales_ledger";
+import { SalesLedger } from "../src/sales_ledger";
 
 it("最初は売上が0であること", () => {
   const ledger = new SalesLedger();

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { VendingMachine } from "./vending_machine";
-import { Slot } from "./slot";
-import { Product } from "./product";
-import { CoinBox } from "./coinbox";
-import { ICCardPayment } from "./ic_card_payment";
+import { VendingMachine } from "../src/vending_machine";
+import { Slot } from "../src/slot";
+import { Product } from "../src/product";
+import { CoinBox } from "../src/coinbox";
+import { ICCardPayment } from "../src/ic_card_payment";
 
 describe("VendingMachine", () => {
   it("初期状態では残高が0円であること", () => {

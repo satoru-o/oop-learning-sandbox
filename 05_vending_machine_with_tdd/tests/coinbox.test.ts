@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { CoinBox } from "./coinbox";
+import { CoinBox } from "../src/coinbox";
 
 it("硬貨の枚数を持つこと", () => {
   const box = new CoinBox({ 100: 5, 10: 3 });

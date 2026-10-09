@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { ICCardPayment } from "./ic_card_payment";
+import { ICCardPayment } from "../src/ic_card_payment";
 
 it("カードの残高を持つこと", () => {
   expect(new ICCardPayment(1000).balance).toBe(1000);

@@ -48,6 +48,14 @@
 - [x] 支払い方法を増やしても、既存クラスの `if` を書き換えずに済む（OCP）
 - [x] すべてのテストが Green
 
+## 📁 構成
+
+```
+05_vending_machine_with_tdd/
+├── src/     # 実装（Product / Slot / CashPayment / ICCardPayment / CoinBox / SalesLedger / VendingMachine）
+└── tests/   # テスト（実装1ファイルにつき *.test.ts を1つ）
+```
+
 ## 🚀 実行方法
 
 ```bash
