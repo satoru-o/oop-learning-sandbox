@@ -1,9 +1,9 @@
 import { CoinBox } from "./coinbox";
-import { Payment } from "./payment";
+import { CashPayment } from "./cash_payment";
 import { Slot } from "./slot";
 
 export class VendingMachine {
-  private payment = new Payment();
+  private payment = new CashPayment();
 
   constructor(
     private slots: Slot[] = [],

@@ -1,7 +1,7 @@
 const VALID_CASH_VALUES = [10, 50, 100, 500, 1000] as const;
 
 
-export class Payment {
+export class CashPayment {
   private _balance: number = 0;
 
   get balance(): number {
