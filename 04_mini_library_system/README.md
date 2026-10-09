@@ -63,12 +63,12 @@
 ## 🚀 実行方法
 
 ```bash
-python 04_mini_library_system/library.py
+python 04_mini_library_system/src/library.py
 ```
 
 テストはリポジトリのルートで `uv run pytest` を実行します。
 
-ファイルが大きくなってきたら `models.py` / `errors.py` などに分けてOKです。
+ファイルが大きくなってきたら `src/` の中で `models.py` / `errors.py` などに分けてOKです（テストは `tests/`）。
 
 ## 🌱 余裕があれば（発展）
 

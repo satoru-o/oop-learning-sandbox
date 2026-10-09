@@ -17,7 +17,7 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["04_mini_library_system/tests"]
 # 章のディレクトリ名は数字始まりでパッケージにできないため、import パスとして直接追加する
-pythonpath = ["04_mini_library_system"]
+pythonpath = ["04_mini_library_system/src"]
 
 [tool.ruff]
 line-length = 100
