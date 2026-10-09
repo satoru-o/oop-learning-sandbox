@@ -7,3 +7,9 @@ it("列は商品と在庫を持つこと", () => {
   expect(slot.product.name).toBe("お茶");
   expect(slot.stock).toBe(5);
 });
+
+it("1本取り出すと在庫が1減ること", () => {
+  const slot = new Slot(new Product("お茶", 120), 5);
+  slot.dispense();
+  expect(slot.stock).toBe(4);
+})
