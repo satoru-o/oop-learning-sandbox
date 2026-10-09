@@ -1,9 +1,12 @@
 import { CoinBox } from "./coinbox";
 import { CashPayment } from "./cash_payment";
 import type { PaymentMethod } from "./payment_method";
+import { SalesLedger } from "./sales_ledger";
 import { Slot } from "./slot";
 
 export class VendingMachine {
+  readonly sales = new SalesLedger();
+
   constructor(
     private slots: Slot[] = [],
     private coinBox: CoinBox = new CoinBox({}),
@@ -37,6 +40,7 @@ export class VendingMachine {
     this.payment.pay(price);
     this.payment.refund();
     slot.dispense();
+    this.sales.record(productName, price);
     return change;
   }
 

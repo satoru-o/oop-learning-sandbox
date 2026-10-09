@@ -103,3 +103,20 @@ describe("VendingMachine（ICカード払い）", () => {
     expect(card.balance).toBe(100);
   });
 });
+
+describe("VendingMachine（売上集計）", () => {
+  it("購入に成功すると売上に記録されること", () => {
+    const machine = new VendingMachine([new Slot(new Product("お茶", 120), 5)], new CoinBox({ 100: 5, 50: 5, 10: 5 }));
+    machine.insertMoney(500);
+    machine.buy("お茶");
+    expect(machine.sales.countOf("お茶")).toBe(1);
+    expect(machine.sales.totalAmount).toBe(120);
+  });
+
+  it("購入に失敗したときは売上に記録されないこと", () => {
+    const machine = new VendingMachine([new Slot(new Product("お茶", 120), 5)], new CoinBox({}));
+    machine.insertMoney(100);
+    expect(() => machine.buy("お茶")).toThrow();
+    expect(machine.sales.totalAmount).toBe(0);
+  });
+});
