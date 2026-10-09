@@ -14,4 +14,8 @@ export class Slot {
   get stock(): number {
     return this._stock
   }
+
+  dispense(): void {
+    this._stock -= 1;
+  }
 }
