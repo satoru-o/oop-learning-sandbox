@@ -25,7 +25,7 @@ export class Payment {
     return this._balance;
   }
 
-  refund(balance: number): number {
+  refund(): number {
     const refunded = this._balance;
     this._balance = 0;
 
