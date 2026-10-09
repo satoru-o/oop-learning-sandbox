@@ -17,6 +17,10 @@ export class Payment {
     this._balance += money;
   }
 
+  canPay(price: number): boolean {
+    return this._balance >= price;
+  }
+
   pay(price: number): number {
     if (price > this._balance) {
       throw new Error(`[Error] 残高不足です`)

@@ -13,6 +13,10 @@ export class Slot {
     return this._stock
   }
 
+  get hasStock(): boolean {
+    return this._stock > 0;
+  }
+
   dispense(): void {
     const currentStock = this._stock;
 

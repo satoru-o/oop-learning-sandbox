@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { VendingMachine } from "./vending_machine";
+import { Slot } from "./slot";
+import { Product } from "./product";
+import { CoinBox } from "./coinbox";
 
 describe("VendingMachine", () => {
   it("初期状態では残高が0円であること", () => {
@@ -18,3 +21,64 @@ describe("VendingMachine", () => {
     expect(() => machine.insertMoney(7)).toThrow();
   });
 })
+
+describe("VendingMachine.buy", () => {
+  const setup = (stock = 5, coins: Record<number, number> = { 100: 5, 50: 5, 10: 5 }) => {
+    const slot = new Slot(new Product("お茶", 120), stock);
+    const coinBox = new CoinBox(coins);
+    const machine = new VendingMachine([slot], coinBox);
+    return { machine, slot, coinBox };
+  };
+
+  it("購入すると釣り銭を返し、在庫と残高が減ること", () => {
+    const { machine, slot } = setup();
+    machine.insertMoney(500);
+    const change = machine.buy("お茶");
+    expect(change).toEqual({ 100: 3, 50: 1, 10: 3 });
+    expect(slot.stock).toBe(4);
+    expect(machine.balance).toBe(0);
+  });
+
+  it("釣り銭に使った硬貨は釣り銭箱から減ること", () => {
+    const { machine, coinBox } = setup();
+    machine.insertMoney(500);
+    machine.buy("お茶");
+    expect(coinBox.count(100)).toBe(2);
+  });
+
+  it("残高が足りないと購入できず、在庫は減らないこと", () => {
+    const { machine, slot } = setup();
+    machine.insertMoney(100);
+    expect(() => machine.buy("お茶")).toThrow("残高不足");
+    expect(slot.stock).toBe(5);
+    expect(machine.balance).toBe(100);
+  });
+
+  it("在庫切れだと購入できず、残高は減らないこと", () => {
+    const { machine } = setup(0);
+    machine.insertMoney(500);
+    expect(() => machine.buy("お茶")).toThrow("在庫切れ");
+    expect(machine.balance).toBe(500);
+  });
+
+  it("釣り銭を払い出せないと購入できず、在庫も残高も変わらないこと", () => {
+    const { machine, slot } = setup(5, { 100: 1 });
+    machine.insertMoney(500);
+    expect(() => machine.buy("お茶")).toThrow("釣り銭を払い出せません");
+    expect(slot.stock).toBe(5);
+    expect(machine.balance).toBe(500);
+  });
+
+  it("存在しない商品は購入できないこと", () => {
+    const { machine } = setup();
+    machine.insertMoney(500);
+    expect(() => machine.buy("コーラ")).toThrow("商品がありません");
+  });
+
+  it("払い戻しすると投入した金額が戻り、残高が0になること", () => {
+    const { machine } = setup();
+    machine.insertMoney(500);
+    expect(machine.refund()).toBe(500);
+    expect(machine.balance).toBe(0);
+  });
+});
