@@ -54,6 +54,9 @@ npx tsc --init
 │   │   ├── serialization.py / repository.py  # 保存・読み込み（外界との境界）
 │   │   └── library.py
 │   └── tests/               # pytest
+├── 05_vending_machine_with_tdd/     # TDD演習（自動販売機・TypeScript）
+│   ├── src/                 # 実装（Product / Slot / CoinBox / 支払い方法 / SalesLedger / VendingMachine）
+│   └── tests/               # vitest
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -80,6 +83,12 @@ uv run pytest
 ```bash
 uv run ruff check .     # リント
 uv run ruff format .    # 整形
+```
+
+### TypeScript のテスト（`vitest`）
+
+```bash
+npm run test:ts
 ```
 
 ### TypeScript (`ts-node` で直接実行)
@@ -118,6 +127,13 @@ npx ts-node 01_basics/account.ts
 * 本・会員・貸出を設計し、会員種別ごとの貸出上限・期間・延滞料といった業務ルールを実装する。
 * 責務分割・継承/Strategy の使い分け・カスタム例外など、Step 1〜3 の要素を自力で組み合わせる。
 * 詳細は `04_mini_library_system/README.md` を参照。
+
+### Step 5: TDDで育てる (`05_vending_machine_with_tdd/`)
+
+* **お題: 自動販売機（TypeScript + vitest）**
+* テストを先に書き、Red → Green → Refactor の小さな歩幅で設計を固める。
+* 釣り銭の払い出し（`CoinBox`）、支払い方法の差し替え（現金 / ICカード）、売上集計（`SalesLedger`）まで実装する。
+* 詳細は `05_vending_machine_with_tdd/README.md` を参照。
 
 ---
 
