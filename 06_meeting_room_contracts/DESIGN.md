@@ -71,6 +71,7 @@ classDiagram
 | --- | --- | --- |
 | TimeSlot | 不変条件 | `start < end` |
 | TimeSlot.overlaps | 事後条件 | 左右を入れ替えても結果が同じ（対称性） |
+| Room | 不変条件 | 名前が空でない（`""` や `None` は不可） |
 | RoomCalendar | 不変条件 | 予約同士の時間帯が重ならない |
 | reserve | 事前条件 | 空いている（`is_available`）／その人が部屋を使える（`can_use`）※最終形。手順 4 では最初 `can_use` を入れない |
 | reserve | 事後条件 | 予約が 1 件増える。不変条件も守られている |
