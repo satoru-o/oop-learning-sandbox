@@ -7,5 +7,9 @@
     "editor.tabSize": 2,
     "editor.insertSpaces": true
   },
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "python.analysis.extraPaths": [
+    "04_mini_library_system/src",
+    "06_meeting_room_contracts/src"
+  ]
 }
