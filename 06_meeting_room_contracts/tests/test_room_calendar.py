@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pytest
 from position import Position
 from room import Room
 from room_calendar import RoomCalendar
@@ -48,3 +49,13 @@ def test_隣り合う時間帯は空いている():
     calendar.reserve(staff, slot)
     assert calendar.is_available(
         TimeSlot(datetime(2026, 11, 3, 11, 0), datetime(2026, 11, 3, 11, 30)))
+
+
+def test_空いていない時間帯をreserveしたらAssertionError():
+    calendar = RoomCalendar(room)
+    staff = User("朝野", Position.STAFF)
+    slot = TimeSlot(datetime(2026, 11, 3, 10, 0), datetime(2026, 11, 3, 11, 0))
+    calendar.reserve(staff, slot)
+    with pytest.raises(AssertionError):
+        calendar.reserve(staff, TimeSlot(datetime(2026, 11, 3, 10, 0),
+                         datetime(2026, 11, 3, 12, 0)))
