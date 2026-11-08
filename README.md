@@ -57,6 +57,9 @@ npx tsc --init
 ├── 05_vending_machine_with_tdd/     # TDD演習（自動販売機・TypeScript）
 │   ├── src/                 # 実装（Product / Slot / CoinBox / 支払い方法 / SalesLedger / VendingMachine）
 │   └── tests/               # vitest
+├── 06_meeting_room_contracts/       # 契約による設計演習（会議室予約・Pythonのみ）
+│   ├── src/                 # 実装（TimeSlot / Position / User / Room / ExecutiveRoom / Reservation / RoomCalendar）
+│   └── tests/               # pytest
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -134,6 +137,13 @@ npx ts-node 01_basics/account.ts
 * テストを先に書き、Red → Green → Refactor の小さな歩幅で設計を固める。
 * 釣り銭の払い出し（`CoinBox`）、支払い方法の差し替え（現金 / ICカード）、売上集計（`SalesLedger`）まで実装する。
 * 詳細は `05_vending_machine_with_tdd/README.md` を参照。
+
+### Step 6: 契約で守る (`06_meeting_room_contracts/`)
+
+* **お題: 会議室の予約（Python のみ）**
+* 事前条件・事後条件・不変条件を「どのクラスが誰に約束するか」として設計し、`assert` から `icontract` へ置き換える。
+* 役員用会議室（`ExecutiveRoom`）を継承で作り、契約を破って Red にしてから直すことで、LSP（置換原則）を体感する。
+* 詳細は `06_meeting_room_contracts/README.md` と `DESIGN.md` を参照。
 
 ---
 
