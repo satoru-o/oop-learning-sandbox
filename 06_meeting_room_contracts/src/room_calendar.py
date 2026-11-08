@@ -27,6 +27,20 @@ class RoomCalendar:
 
         return reservation
 
+    def cancel(self, reservation):
+        self._check_invariant()
+
+        if reservation not in self.reservations:
+            raise AssertionError("事前条件違反(存在しない予約は取り消せない)")
+        before = len(self.reservations)
+
+        self.reservations.remove(reservation)
+
+        if len(self.reservations) != before - 1:
+            raise AssertionError("事後条件違反(予約が1件減っていない)")
+
+        self._check_invariant()
+
     def is_available(self, slot: TimeSlot) -> bool:
         for reservation in self.reservations:
             if reservation.slot.overlaps(slot):

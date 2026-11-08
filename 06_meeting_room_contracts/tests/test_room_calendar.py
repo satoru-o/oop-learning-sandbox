@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 from position import Position
+from reservation import Reservation
 from room import Room
 from room_calendar import RoomCalendar
 from time_slot import TimeSlot
@@ -59,3 +60,36 @@ def test_空いていない時間帯をreserveしたらAssertionError():
     with pytest.raises(AssertionError):
         calendar.reserve(staff, TimeSlot(datetime(2026, 11, 3, 10, 0),
                          datetime(2026, 11, 3, 12, 0)))
+
+
+def test_cancelすると予約が1件減る():
+    calendar = RoomCalendar(room)
+    staff = User("朝野", Position.STAFF)
+    slot = TimeSlot(datetime(2026, 11, 3, 10, 0), datetime(2026, 11, 3, 11, 0))
+    reservation = calendar.reserve(staff, slot)
+
+    calendar.cancel(reservation)
+
+    assert len(calendar.reservations) == 0
+    assert reservation not in calendar.reservations
+
+
+def test_cancelした枠はまた空く():
+    calendar = RoomCalendar(room)
+    staff = User("朝野", Position.STAFF)
+    slot = TimeSlot(datetime(2026, 11, 3, 10, 0), datetime(2026, 11, 3, 11, 0))
+    reservation = calendar.reserve(staff, slot)
+
+    calendar.cancel(reservation)
+
+    assert calendar.is_available(slot)
+
+
+def test_存在しない予約をcancelしたらAssertionError():
+    calendar = RoomCalendar(room)
+    staff = User("朝野", Position.STAFF)
+    slot = TimeSlot(datetime(2026, 11, 3, 10, 0), datetime(2026, 11, 3, 11, 0))
+    other = Reservation(staff, slot)
+
+    with pytest.raises(AssertionError):
+        calendar.cancel(other)
