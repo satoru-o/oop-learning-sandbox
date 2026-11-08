@@ -1,6 +1,7 @@
 from reservation import Reservation
 from room import Room
 from time_slot import TimeSlot
+from user import User
 
 
 class RoomCalendar:
@@ -10,9 +11,11 @@ class RoomCalendar:
 
         self._check_invariant()
 
-    def reserve(self, user, slot):
+    def reserve(self, user: User, slot: TimeSlot):
         self._check_invariant()
 
+        if not self.room.can_use(user):
+            raise AssertionError("事前条件違反(その人は会議室を使えない)")
         if not self.is_available(slot):
             raise AssertionError("事前条件違反(空いていない時間帯に予約不可能)")
         before = len(self.reservations)
