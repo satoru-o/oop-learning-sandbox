@@ -1,7 +1,9 @@
+import icontract
+
+
+@icontract.invariant(lambda self: self.start < self.end, "start < end")
 class TimeSlot:
     def __init__(self, start, end):
-        if start >= end:
-            raise AssertionError("不変条件違反(start < end)")
         self.start = start
         self.end = end
 
@@ -13,8 +15,9 @@ class TimeSlot:
         else:
             return True
 
+    @icontract.ensure(
+        lambda self, other, result: result == other._raw_overlaps(self),
+        "overlapsは左右を入れ替えても同じ結果になる",
+    )
     def overlaps(self, other) -> bool:
-        result = self._raw_overlaps(other)
-        if result != other._raw_overlaps(self):
-            raise AssertionError("事後条件違反(overlapsが対称ではない)")
-        return result
+        return self._raw_overlaps(other)

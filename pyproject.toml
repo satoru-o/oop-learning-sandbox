@@ -3,7 +3,9 @@ name = "oop-learning-sandbox"
 version = "0.1.0"
 description = "OOP を Python / TypeScript で学ぶサンドボックス"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "icontract>=2.7.3",
+]
 
 [dependency-groups]
 dev = [

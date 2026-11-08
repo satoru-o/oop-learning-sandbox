@@ -1,11 +1,11 @@
+import icontract
 from user import User
 
 
+@icontract.invariant(lambda self: bool(self.name), "会議室は名前を持つこと")
 class Room:
     def __init__(self, name):
-        if not name:
-            raise AssertionError("不変条件違反(会議室は名前を持つこと)")
         self.name = name
 
-    def can_use(self, user: User):
+    def can_use(self, user: User) -> bool:
         return True
