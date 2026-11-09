@@ -27,6 +27,13 @@ class Schedule:
     room: Room
     bookings: tuple[Booking, ...] = ()
 
+    def __post_init__(self) -> None:
+        # 直接 Schedule(...) と書かれても、予約同士が重なる値は作れない
+        for i, a in enumerate(self.bookings):
+            for b in self.bookings[i + 1 :]:
+                if overlaps(a.slot, b.slot):
+                    raise ValueError("予約同士の時間帯が重ならない")
+
 
 def is_available(schedule: Schedule, slot: Slot) -> bool:
     return all(not overlaps(b.slot, slot) for b in schedule.bookings)

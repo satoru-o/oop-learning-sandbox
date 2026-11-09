@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pytest
 from result import Err, Ok
 from slot import InvalidSlot, Slot, make_slot, overlaps
 
@@ -31,3 +32,10 @@ def test_隣り合う枠は重ならない():
 def test_overlapsは左右を入れ替えても同じ結果になる():
     a, b = Slot(at(10), at(11)), Slot(at(10, 30), at(12))
     assert overlaps(a, b) == overlaps(b, a)
+
+
+def test_直接作ってもstartがend以上のSlotは作れない():
+    with pytest.raises(ValueError):
+        Slot(at(11), at(10))
+    with pytest.raises(ValueError):
+        Slot(at(10), at(10))
