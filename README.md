@@ -60,6 +60,9 @@ npx tsc --init
 ├── 06_meeting_room_contracts/       # 契約による設計演習（会議室予約・Pythonのみ）
 │   ├── src/                 # 実装（TimeSlot / Position / User / Room / ExecutiveRoom / Reservation / RoomCalendar）
 │   └── tests/               # pytest
+├── 07_meeting_room_functional/      # 06を関数型で作り直す演習（不変データ + 純粋関数 + Result・Pythonのみ）
+│   ├── src/                 # 実装（Slot / Room / Access / Booking / Schedule / Result）
+│   └── tests/               # pytest
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -144,6 +147,13 @@ npx ts-node 01_basics/account.ts
 * 事前条件・事後条件・不変条件を「どのクラスが誰に約束するか」として設計し、`assert` から `icontract` へ置き換える。
 * 役員用会議室（`ExecutiveRoom`）を継承で作り、契約を破って Red にしてから直すことで、LSP（置換原則）を体感する。
 * 詳細は `06_meeting_room_contracts/README.md` と `DESIGN.md` を参照。
+
+### Step 7: 関数型で作り直す (`07_meeting_room_functional/`)
+
+* **お題: 06と同じ会議室の予約（Python のみ）**
+* 不変データ + 純粋関数 + `Result` 型で、同じ4要求を作り直す。契約違反は例外ではなくエラー値として返す。
+* 役員室は継承をやめ、利用条件（`Access`）をデータにする。LSP の問題が構造ごと消えることを確かめる。
+* 詳細は `07_meeting_room_functional/README.md` と `DESIGN.md` を参照。
 
 ---
 
