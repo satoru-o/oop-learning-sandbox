@@ -46,3 +46,9 @@ classDiagram
 ### まだ残るトレードオフ
 - `__post_init__` は例外を投げるので、「例外を使わない」という07の方針からは少し外れる
 - 事後条件（件数+1など）は、相変わらずテストで確かめるだけ
+
+## 5. 予約情報の置き場所（リポジトリ）
+- `ScheduleRepository`（`load` / `save`）は**端**に置く。`reserve` / `cancel` は今まで通り純粋関数のまま
+- `use_cases.py` の `reserve_room` / `cancel_booking` が「読む → 純粋関数で決める → 書く」をつなぐ薄い殻
+- `Schedule` は不変なので、保存は「新しい値に置き換える」。`Err` のときは `save` しないので、保存内容は変わらない
+- 06 は可変の `RoomCalendar` を預かるが、07 は不変の `Schedule` を預かる
