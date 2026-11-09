@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pytest
 from booking import Booking
 from people import Position, User
 from result import Err, Ok
@@ -64,3 +65,16 @@ def test_キャンセルすると予約が1件減り枠がまた空く():
 def test_存在しない予約のキャンセルはNotFoundになる():
     ghost = Booking(staff, slot(10, 0, 11, 0))
     assert cancel(Schedule(room), ghost) == Err(NotFound())
+
+
+def test_直接作っても予約同士が重なるScheduleは作れない():
+    a = Booking(staff, slot(10, 0, 11, 0))
+    b = Booking(executive, slot(10, 30, 11, 30))
+    with pytest.raises(ValueError):
+        Schedule(room, (a, b))
+
+
+def test_直接作っても隣り合う予約ならScheduleを作れる():
+    a = Booking(staff, slot(10, 0, 11, 0))
+    b = Booking(executive, slot(11, 0, 11, 30))
+    assert Schedule(room, (a, b)).bookings == (a, b)

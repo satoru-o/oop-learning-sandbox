@@ -14,6 +14,11 @@ class Slot:
     start: datetime
     end: datetime
 
+    def __post_init__(self) -> None:
+        # 直接 Slot(...) と書かれても、start < end を満たさない値は作れない
+        if not self.start < self.end:
+            raise ValueError("start < end")
+
 
 def make_slot(start: datetime, end: datetime) -> Ok[Slot] | Err[InvalidSlot]:
     """スマートコンストラクタ。start < end の Slot だけがここから生まれる"""
