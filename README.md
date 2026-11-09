@@ -66,6 +66,9 @@ npx tsc --init
 ├── 08_meeting_room_data_oriented/   # 06・07をデータ指向プログラミングで作り直す演習（dict/list + JSON Schema・Pythonのみ）
 │   ├── src/                 # 実装（schemas / validate / slots / rooms / schedules / schedule_store）
 │   └── tests/               # pytest
+├── 09_meeting_room_pipeline/        # 06〜08のいいとこどり + パイプライン（標準ライブラリ + hypothesis・Pythonのみ）
+│   ├── src/                 # 実装（domain / pipeline / codec / storage / shell）
+│   └── tests/               # pytest（性質テストに hypothesis）
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -165,6 +168,14 @@ npx ts-node 01_basics/account.ts
 * クラスを作らず `dict` / `list` だけで表し、形は JSON Schema（`jsonschema`）で別に定義して境界で検証する。
 * 保存が楽になる一方、補完・型検査・不変性の保証が弱くなることを、06・07と並べて確かめる。
 * 詳細は `08_meeting_room_data_oriented/README.md` と `DESIGN.md` を参照。
+
+### Step 9: いいとこどりとパイプライン (`09_meeting_room_pipeline/`)
+
+* **お題: 06〜08と同じ会議室の予約（Python のみ）**
+* クラスはデータ（`frozen dataclass`）と差し替えたい所（`Protocol`）だけに使い、処理は「ルールの関数を順に通すパイプライン」にする。
+* 契約は `hypothesis` の性質テスト（予約とキャンセルをランダムに繰り返す）に置き換える。
+* 4つの章を並べ、コードの量ではなく「ファイル数・概念の数・守る入口」がどう変わったかを確かめる。
+* 詳細は `09_meeting_room_pipeline/README.md` と `DESIGN.md` を参照。
 
 ---
 

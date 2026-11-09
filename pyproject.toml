@@ -10,6 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.15",
     "pytest>=8",
     "ruff>=0.16.10",
 ]
@@ -23,6 +24,7 @@ testpaths = [
     "06_meeting_room_contracts/tests",
     "07_meeting_room_functional/tests",
     "08_meeting_room_data_oriented/tests",
+    "09_meeting_room_pipeline/tests",
 ]
 # 章のディレクトリ名は数字始まりでパッケージにできないため、import パスとして直接追加する
 pythonpath = [
@@ -30,6 +32,7 @@ pythonpath = [
     "06_meeting_room_contracts/src",
     "07_meeting_room_functional/src",
     "08_meeting_room_data_oriented/src",
+    "09_meeting_room_pipeline/src",
 ]
 
 [tool.ruff]
