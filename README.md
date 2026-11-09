@@ -58,10 +58,10 @@ npx tsc --init
 │   ├── src/                 # 実装（Product / Slot / CoinBox / 支払い方法 / SalesLedger / VendingMachine）
 │   └── tests/               # vitest
 ├── 06_meeting_room_contracts/       # 契約による設計演習（会議室予約・Pythonのみ）
-│   ├── src/                 # 実装（TimeSlot / Position / User / Room / ExecutiveRoom / Reservation / RoomCalendar）
+│   ├── src/                 # 実装（TimeSlot / Position / User / Room / ExecutiveRoom / Reservation / RoomCalendar / CalendarRepository）
 │   └── tests/               # pytest
 ├── 07_meeting_room_functional/      # 06を関数型で作り直す演習（不変データ + 純粋関数 + Result・Pythonのみ）
-│   ├── src/                 # 実装（Slot / Room / Access / Booking / Schedule / Result）
+│   ├── src/                 # 実装（Slot / Room / Access / Booking / Schedule / ScheduleRepository / use_cases / Result）
 │   └── tests/               # pytest
 └── sandbox/                 # 思いつきで自由に試す場所
 ```

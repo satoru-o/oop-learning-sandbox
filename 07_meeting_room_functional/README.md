@@ -18,6 +18,9 @@
 
 対比表・設計の考えどころは [DESIGN.md](DESIGN.md) を見てください。
 
+## 🗄️ 予約情報の置き場所
+`ScheduleRepository`（`load` / `save`）を端に置き、`use_cases.py` が「読む → 純粋関数で決める → 書く」をつなぎます。`reserve` / `cancel` は純粋関数のままです（[DESIGN.md](DESIGN.md) §5）。
+
 ## 🚀 実行方法
 ```bash
 uv run pytest 07_meeting_room_functional

@@ -18,9 +18,12 @@ classDiagram
     Schedule --> Room
     Schedule --> Booking
     Booking --> Slot
+    class ScheduleRepository { <<protocol>> load; save }
+    ScheduleRepository ..> Schedule
 ```
 
 関数: `make_slot` / `overlaps` / `can_use` / `is_available` / `reserve` / `cancel`
+（端の殻: `ScheduleRepository.load` / `save`、`reserve_room` / `cancel_booking`。詳しくは §5）
 
 ## 2. 06 との対比
 

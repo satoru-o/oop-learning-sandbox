@@ -33,3 +33,4 @@
 4. わざと契約を破るテストを書き、ちゃんと落ちるか確かめる
 5. `assert` を `icontract` に置き換える
 6. 役員用会議室（ExecutiveRoom）を継承で作り、事前条件を強めると LSP 違反になることを体感する
+7. 予約情報を溜める `CalendarRepository` を足す（部屋ごとに `RoomCalendar` を預かる）
