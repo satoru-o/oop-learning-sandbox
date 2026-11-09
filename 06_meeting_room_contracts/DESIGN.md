@@ -20,6 +20,8 @@ classDiagram
     Reservation --> TimeSlot : 時間帯
     User --> Position : 持つ
     Room <|-- ExecutiveRoom
+    CalendarRepository ..> RoomCalendar : 部屋ごとに預かる
+    CalendarRepository <|.. InMemoryCalendarRepository
 
     class TimeSlot {
         +start datetime
@@ -53,6 +55,14 @@ classDiagram
         +is_available(slot) bool
         +reserve(user, slot) Reservation
         +cancel(reservation)
+    }
+    class CalendarRepository {
+        <<Protocol>>
+        +get(room_name) RoomCalendar
+    }
+    class InMemoryCalendarRepository {
+        +add(calendar)
+        +get(room_name) RoomCalendar
     }
 ```
 
