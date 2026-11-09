@@ -11,6 +11,7 @@
   "python.analysis.extraPaths": [
     "04_mini_library_system/src",
     "06_meeting_room_contracts/src",
-    "07_meeting_room_functional/src"
+    "07_meeting_room_functional/src",
+    "08_meeting_room_data_oriented/src"
   ]
 }

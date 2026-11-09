@@ -63,6 +63,9 @@ npx tsc --init
 ├── 07_meeting_room_functional/      # 06を関数型で作り直す演習（不変データ + 純粋関数 + Result・Pythonのみ）
 │   ├── src/                 # 実装（Slot / Room / Access / Booking / Schedule / ScheduleRepository / use_cases / Result）
 │   └── tests/               # pytest
+├── 08_meeting_room_data_oriented/   # 06・07をデータ指向プログラミングで作り直す演習（dict/list + JSON Schema・Pythonのみ）
+│   ├── src/                 # 実装（schemas / validate / slots / rooms / schedules / schedule_store）
+│   └── tests/               # pytest
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -154,6 +157,14 @@ npx ts-node 01_basics/account.ts
 * 不変データ + 純粋関数 + `Result` 型で、同じ4要求を作り直す。契約違反は例外ではなくエラー値として返す。
 * 役員室は継承をやめ、利用条件（`Access`）をデータにする。LSP の問題が構造ごと消えることを確かめる。
 * 詳細は `07_meeting_room_functional/README.md` と `DESIGN.md` を参照。
+
+### Step 8: データ指向で作り直す (`08_meeting_room_data_oriented/`)
+
+* **お題: 06・07と同じ会議室の予約（Python のみ）**
+* データ指向プログラミング（DOP）の4原則（コードとデータを分ける／汎用のデータ構造／不変／スキーマを分ける）で作り直す。
+* クラスを作らず `dict` / `list` だけで表し、形は JSON Schema（`jsonschema`）で別に定義して境界で検証する。
+* 保存が楽になる一方、補完・型検査・不変性の保証が弱くなることを、06・07と並べて確かめる。
+* 詳細は `08_meeting_room_data_oriented/README.md` と `DESIGN.md` を参照。
 
 ---
 
