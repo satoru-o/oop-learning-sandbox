@@ -69,6 +69,7 @@ npx tsc --init
 ├── 09_meeting_room_pipeline/        # 06〜08のいいとこどり + パイプライン（標準ライブラリ + hypothesis・Pythonのみ）
 │   ├── src/                 # 実装（domain / pipeline / codec / storage / shell）
 │   └── tests/               # pytest（性質テストに hypothesis）
+├── 10_url_shortener_clean_architecture/  # クリーンアーキテクチャ演習（短縮URL・Pythonのみ）
 └── sandbox/                 # 思いつきで自由に試す場所
 ```
 
@@ -176,6 +177,13 @@ npx ts-node 01_basics/account.ts
 * 契約は `hypothesis` の性質テスト（予約とキャンセルをランダムに繰り返す）に置き換える。
 * 4つの章を並べ、コードの量ではなく「ファイル数・概念の数・守る入口」がどう変わったかを確かめる。
 * 詳細は `09_meeting_room_pipeline/README.md` と `DESIGN.md` を参照。
+
+### Step 10: クリーンアーキテクチャ (`10_url_shortener_clean_architecture/`)
+
+* **お題: 短縮URL（Python のみ）**
+* domain / usecases / adapters / main に層を分け、依存を内側へだけ向ける。
+* 保存先（メモリ / JSONファイル）・コード生成・入口（CLI / HTTP）を差し替えても、ユースケースのコードが変わらないことを確かめる。
+* 詳細は `10_url_shortener_clean_architecture/README.md` を参照。
 
 ---
 

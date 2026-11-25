@@ -25,6 +25,7 @@ testpaths = [
     "07_meeting_room_functional/tests",
     "08_meeting_room_data_oriented/tests",
     "09_meeting_room_pipeline/tests",
+    "10_url_shortener_clean_architecture/tests",
 ]
 # 章のディレクトリ名は数字始まりでパッケージにできないため、import パスとして直接追加する
 pythonpath = [
@@ -33,6 +34,7 @@ pythonpath = [
     "07_meeting_room_functional/src",
     "08_meeting_room_data_oriented/src",
     "09_meeting_room_pipeline/src",
+    "10_url_shortener_clean_architecture/src",
 ]
 
 [tool.ruff]

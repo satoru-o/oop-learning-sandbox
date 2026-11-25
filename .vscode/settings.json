@@ -13,6 +13,7 @@
     "06_meeting_room_contracts/src",
     "07_meeting_room_functional/src",
     "08_meeting_room_data_oriented/src",
-    "09_meeting_room_pipeline/src"
+    "09_meeting_room_pipeline/src",
+    "10_url_shortener_clean_architecture/src"
   ]
 }
