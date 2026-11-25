@@ -49,6 +49,7 @@
 ```
 10_url_shortener_clean_architecture/
 ├── adr/             # 設計判断の記録（1件1ファイル）
+├── notes/           # わかりにくかったことのメモ
 ├── src/
 │   └── shortener/   # domain / usecases / adapters / main
 └── tests/           # test_*_ca.py
