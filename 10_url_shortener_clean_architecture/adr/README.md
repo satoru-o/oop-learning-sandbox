@@ -27,3 +27,4 @@
 | id | title | status |
 | --- | --- | --- |
 | [0001](0001-value-object-field-name.md) | 値オブジェクトの中身は `value` で取り出す | accepted |
+| [0002](0002-value-object-as-frozen-dataclass.md) | 値オブジェクトは frozen dataclass で作る | accepted |
