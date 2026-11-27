@@ -6,7 +6,7 @@
 | # | チケット | 層 | 種類 | 状態 |
 | --- | --- | --- | --- | --- |
 | T0 | 登場人物と依存の向きの地図を `DESIGN.md` に書く | all | 設計 | 済 |
-| T1 | `InMemoryUrlRepository` に書き留めたコードで、URL を取り出せる | adapters | テスト | 未着手 |
+| T1 | `InMemoryUrlRepository` に書き留めたコードで、URL を取り出せる | adapters | テスト | 済 |
 | T2 | `ShortenUrl` が、作ったコードと URL を保存先に書き留める | usecases | テスト | 未着手 |
 | T3 | 保存先の約束ごと `UrlRepository`（Protocol）を usecases に置く | usecases | Refactor | 未着手 |
 | T4 | `ResolveUrl` にコードを渡すと、元の URL を返す（要求2） | usecases | テスト | 未着手 |
